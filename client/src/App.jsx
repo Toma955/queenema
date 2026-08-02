@@ -223,7 +223,6 @@ export default function App() {
               conversation={staff.active}
               messages={staff.messages}
               error={staff.error}
-              isAdmin={staff.isAdmin}
               onBack={() => staff.setActiveId(null)}
               onPatience={staff.setPatience}
               onSend={staff.send}
@@ -235,8 +234,6 @@ export default function App() {
               onRespondInvite={staff.respondInvite}
               onSetEmaAvatar={staff.setEmaAvatar}
               socketRef={staff.socketRef}
-              onEnd={() => staff.endConversation()}
-              onWipe={() => staff.wipeConversation()}
             />
           ) : (
             <Home
@@ -253,8 +250,6 @@ export default function App() {
               onOpenConversation={staff.setActiveId}
               onSetPatience={staff.setPatience}
               onSetAcceptNew={staff.setAcceptNew}
-              onEndConversation={staff.endConversation}
-              onWipeConversation={staff.wipeConversation}
               onLogout={staff.logout}
               onUpdateProfile={staff.updateProfile}
               onUpdateEmaProfile={staff.updateEmaAsAdmin}

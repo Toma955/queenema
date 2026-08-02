@@ -84,8 +84,6 @@ export default function Home({
   onOpenConversation,
   onSetPatience,
   onSetAcceptNew,
-  onEndConversation,
-  onWipeConversation,
   onLogout,
   onUpdateProfile,
   onUpdateEmaProfile,
@@ -645,24 +643,6 @@ export default function Home({
                               onSetPatience?.(v, c.id);
                             }}
                           />
-                        </div>
-                      ) : null}
-                      {isAdmin ? (
-                        <div className="home__admin-row">
-                          <button
-                            type="button"
-                            className="ghost-btn"
-                            onClick={() => onEndConversation?.(c.id)}
-                          >
-                            Završi
-                          </button>
-                          <button
-                            type="button"
-                            className="ghost-btn"
-                            onClick={() => onWipeConversation?.(c.id)}
-                          >
-                            Obriši
-                          </button>
                         </div>
                       ) : null}
                     </li>

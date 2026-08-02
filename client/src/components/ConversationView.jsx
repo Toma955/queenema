@@ -265,10 +265,7 @@ export default function ConversationView({
   onSendReaction,
   onRespondInvite,
   onSetEmaAvatar,
-  onEnd,
-  onWipe,
   socketRef = null,
-  isAdmin = false,
   canSetInterest = true,
 }) {
   const [text, setText] = useState("");
@@ -519,16 +516,6 @@ export default function ConversationView({
           <p className="conv__score">score {patience}</p>
           {patience <= 0 ? (
             <p className="conv__wipe-hint">Prekid — razgovor se briše</p>
-          ) : null}
-          {isAdmin ? (
-            <div className="conv__admin-actions">
-              <button type="button" className="ghost-btn" onClick={onEnd}>
-                Završi chat
-              </button>
-              <button type="button" className="ghost-btn conv__wipe-btn" onClick={onWipe}>
-                Obriši (wipe)
-              </button>
-            </div>
           ) : null}
         </div>
       ) : null}
