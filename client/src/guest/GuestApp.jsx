@@ -131,11 +131,9 @@ export default function GuestApp() {
     return c?.guestToken === token && Array.isArray(c.messages) ? c.messages : [];
   });
   const [draft, setDraft] = useState("");
-  const [islandOpen, setIslandOpen] = useState(false);
   const [liveCall, setLiveCall] = useState(null);
   const socketRef = useRef(null);
   const bottomRef = useRef(null);
-  const islandRef = useRef(null);
   const {
     recording,
     elapsed: recElapsed,
@@ -296,16 +294,6 @@ export default function GuestApp() {
     };
   }, [guestToken, cookieConsent]);
 
-  useEffect(() => {
-    if (!islandOpen) return undefined;
-    function onDown(e) {
-      if (islandRef.current?.contains(e.target)) return;
-      setIslandOpen(false);
-    }
-    document.addEventListener("pointerdown", onDown);
-    return () => document.removeEventListener("pointerdown", onDown);
-  }, [islandOpen]);
-
   function onAvatarChange(e) {
     const file = e.target.files?.[0];
     if (!file) {
@@ -410,7 +398,6 @@ export default function GuestApp() {
       conversationId: conversation.id,
       kind,
     });
-    setIslandOpen(false);
   }
 
   function sendReaction(kind) {
@@ -419,7 +406,6 @@ export default function GuestApp() {
       conversationId: conversation.id,
       kind,
     });
-    setIslandOpen(false);
   }
 
   function sendPhoto(image, mime) {
@@ -447,7 +433,6 @@ export default function GuestApp() {
     socketRef.current.emit("end_conversation", {
       conversationId: conversation.id,
     });
-    setIslandOpen(false);
     setPhase("gone");
     setConversation(null);
     setMessages([]);
@@ -543,14 +528,14 @@ export default function GuestApp() {
     const features = conversation.features || {};
     const patience = conversation.patience ?? 50;
     const maxChars = features.maxChars ?? 2000;
-    const islandActions = [
+    const toolActions = [
       features.call
         ? { id: "call", label: "Poziv", Icon: Phone, onClick: () => sendCall("call") }
         : null,
       features.video
         ? {
             id: "video",
-            label: "Videopoziv",
+            label: "Video",
             Icon: Video,
             onClick: () => sendCall("video"),
           }
@@ -566,7 +551,7 @@ export default function GuestApp() {
       features.coffee
         ? {
             id: "coffee",
-            label: "Kava / dejt",
+            label: "Kava",
             Icon: Coffee,
             onClick: () => sendReaction("coffee"),
           }
@@ -575,39 +560,22 @@ export default function GuestApp() {
 
     return (
       <div className="guest-page guest-page--chat">
-        <div className="guest-top" ref={islandRef}>
+        <header className="guest-top guest-top--bar">
+          <div className="guest-top__nick" aria-label="Ema">
+            <span className="guest-top__name">Ema</span>
+            <span className="guest-top__score">{patience}</span>
+          </div>
           <button
             type="button"
-            className={`guest-top-island${islandOpen ? " is-open" : ""}`}
-            onClick={() => setIslandOpen((v) => !v)}
-            aria-expanded={islandOpen}
+            className="guest-top__leave"
+            onClick={endChat}
+            aria-label="Prekini razgovor"
+            title="Prekini razgovor"
           >
-            <span>Ema</span>
-            <span className="guest-top-island__score">{patience}</span>
+            <LogOut size={16} />
+            <span>Prekini</span>
           </button>
-          {islandOpen ? (
-            <div className="guest-top-menu">
-              {islandActions.length ? (
-                islandActions.map((a) => (
-                  <button key={a.id} type="button" onClick={a.onClick}>
-                    <a.Icon size={16} />
-                    {a.label}
-                  </button>
-                ))
-              ) : (
-                <p className="guest-top-menu__empty">Nema otključanih akcija</p>
-              )}
-              <button
-                type="button"
-                className="guest-top-menu__leave"
-                onClick={endChat}
-              >
-                <LogOut size={16} />
-                Prekini razgovor
-              </button>
-            </div>
-          ) : null}
-        </div>
+        </header>
 
         <div className="guest-chat-stream">
           {messages.map((m) => (
@@ -642,35 +610,56 @@ export default function GuestApp() {
             onSend={sendRec}
           />
         ) : (
-          <form
-            className={`island island--bar guest-composer${features.photo ? " island--photo" : ""}${features.voice ? "" : " island--nomic"}`}
-            onSubmit={sendText}
-          >
-            {features.voice ? (
+          <div className="guest-compose">
+            {toolActions.length || features.voice || features.photo ? (
+              <div className="guest-compose__tools" role="toolbar" aria-label="Akcije">
+                {toolActions.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className="guest-compose__tool"
+                    onClick={a.onClick}
+                    title={a.label}
+                    aria-label={a.label}
+                  >
+                    <a.Icon size={16} />
+                  </button>
+                ))}
+                {features.voice ? (
+                  <button
+                    type="button"
+                    className="guest-compose__tool"
+                    onClick={startRec}
+                    title="Glasovna"
+                    aria-label="Glasovna"
+                  >
+                    <Mic size={16} />
+                  </button>
+                ) : null}
+                {features.photo ? (
+                  <PhotoPickerButton onPick={sendPhoto} />
+                ) : null}
+              </div>
+            ) : null}
+            <form className="guest-compose__row" onSubmit={sendText}>
+              <input
+                className="guest-compose__input"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Poruka…"
+                maxLength={maxChars}
+                enterKeyHint="send"
+              />
               <button
-                type="button"
-                className="island__mic"
-                onClick={startRec}
-                aria-label="Glasovna"
+                className="guest-compose__send"
+                type="submit"
+                disabled={!draft.trim()}
+                aria-label="Pošalji"
               >
-                <Mic size={18} />
+                ↑
               </button>
-            ) : null}
-            {features.photo ? (
-              <PhotoPickerButton onPick={sendPhoto} />
-            ) : null}
-            <input
-              className="island__input"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Poruka…"
-              maxLength={maxChars}
-              enterKeyHint="send"
-            />
-            <button className="island__send" type="submit" disabled={!draft.trim()}>
-              ↑
-            </button>
-          </form>
+            </form>
+          </div>
         )}
         {error ? <p className="err pad">{error}</p> : null}
       </div>
