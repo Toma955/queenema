@@ -14,6 +14,8 @@ import {
 import PatienceBar from "./PatienceBar.jsx";
 import CallInvite from "./CallInvite.jsx";
 import VoicePlayer from "./VoicePlayer.jsx";
+import VoiceRecordBar from "./VoiceRecordBar.jsx";
+import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
 import { apiUrl } from "../lib/api.js";
 
 function mediaSrc(url) {
@@ -251,14 +253,20 @@ export default function ConversationView({
   canSetInterest = true,
 }) {
   const [text, setText] = useState("");
-  const [recording, setRecording] = useState(false);
   const [interestOpen, setInterestOpen] = useState(false);
   const [draftPatience, setDraftPatience] = useState(null);
   const [reactId, setReactId] = useState(null);
   const bottomRef = useRef(null);
-  const mediaRef = useRef(null);
-  const chunksRef = useRef([]);
   const interestRef = useRef(null);
+  const {
+    recording,
+    elapsed: recElapsed,
+    start: startRec,
+    cancel: cancelRec,
+    send: sendRec,
+  } = useVoiceRecorder({
+    onSend: (audio, mime, durationSec) => onSendVoice?.(audio, mime, durationSec),
+  });
 
   const patience =
     draftPatience != null
@@ -299,55 +307,6 @@ export default function ConversationView({
     if (!t) return;
     onSend(t);
     setText("");
-  }
-
-  async function toggleVoice() {
-    if (recording) {
-      try {
-        mediaRef.current?.requestData?.();
-      } catch {
-        /* ignore */
-      }
-      mediaRef.current?.stop();
-      setRecording(false);
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/webm")
-          ? "audio/webm"
-          : MediaRecorder.isTypeSupported("audio/mp4")
-            ? "audio/mp4"
-            : "";
-      const recorder = mime
-        ? new MediaRecorder(stream, { mimeType: mime })
-        : new MediaRecorder(stream);
-      chunksRef.current = [];
-      const startedAt = performance.now();
-      recorder.ondataavailable = (ev) => {
-        if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
-      };
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const durationSec = Math.max(0.4, (performance.now() - startedAt) / 1000);
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType || mime || "audio/webm",
-        });
-        if (blob.size < 100) {
-          return;
-        }
-        const reader = new FileReader();
-        reader.onloadend = () => onSendVoice?.(reader.result, blob.type, durationSec);
-        reader.readAsDataURL(blob);
-      };
-      mediaRef.current = recorder;
-      recorder.start(200);
-      setRecording(true);
-    } catch {
-      /* mic denied */
-    }
   }
 
   const ended = conversation?.status === "ended";
@@ -520,27 +479,35 @@ export default function ConversationView({
       {error ? <p className="err pad">{error}</p> : null}
 
       {!ended ? (
-        <form className="island island--bar" onSubmit={submit}>
-          <button
-            type="button"
-            className={`island__mic ${recording ? "is-rec" : ""}`}
-            onClick={toggleVoice}
-            aria-label={recording ? "Stop snimanje" : "Glasovna"}
-          >
-            <Mic size={18} />
-          </button>
-          <input
-            className="island__input"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Poruka…"
-            maxLength={2000}
-            enterKeyHint="send"
+        recording ? (
+          <VoiceRecordBar
+            elapsed={recElapsed}
+            onCancel={cancelRec}
+            onSend={sendRec}
           />
-          <button className="island__send" type="submit" disabled={!text.trim()}>
-            ↑
-          </button>
-        </form>
+        ) : (
+          <form className="island island--bar" onSubmit={submit}>
+            <button
+              type="button"
+              className="island__mic"
+              onClick={startRec}
+              aria-label="Glasovna"
+            >
+              <Mic size={18} />
+            </button>
+            <input
+              className="island__input"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Poruka…"
+              maxLength={2000}
+              enterKeyHint="send"
+            />
+            <button className="island__send" type="submit" disabled={!text.trim()}>
+              ↑
+            </button>
+          </form>
+        )
       ) : null}
     </section>
   );

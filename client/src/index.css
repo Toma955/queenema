@@ -2783,6 +2783,138 @@ button {
   background: var(--red);
 }
 
+/* —— Snimanje glasovne: poništi / timer / pošalji —— */
+.voice-rec {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.voice-rec__cancel,
+.voice-rec__send {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.voice-rec__cancel {
+  background: rgba(255, 90, 90, 0.18);
+  color: #ff8f8f;
+  border: 1px solid rgba(255, 120, 120, 0.35);
+}
+
+.voice-rec__cancel:active {
+  background: rgba(255, 90, 90, 0.28);
+}
+
+.voice-rec__send {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1a1012;
+}
+
+.voice-rec__send:active {
+  transform: scale(0.96);
+}
+
+.voice-rec__center {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.15rem;
+}
+
+.voice-rec__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #ff4d4d;
+  box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.55);
+  animation: voice-rec-pulse 1.2s ease-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes voice-rec-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(255, 77, 77, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 77, 77, 0);
+  }
+}
+
+.voice-rec__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffb0b0;
+  letter-spacing: -0.01em;
+}
+
+.voice-rec__time {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--foam);
+  min-width: 2.4rem;
+}
+
+.voice-rec__wave {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 1rem;
+  margin-left: auto;
+}
+
+.voice-rec__wave span {
+  width: 3px;
+  border-radius: 999px;
+  background: rgba(255, 140, 140, 0.85);
+  animation: voice-rec-wave 0.9s ease-in-out infinite;
+}
+
+.voice-rec__wave span:nth-child(1) {
+  height: 40%;
+  animation-delay: 0s;
+}
+.voice-rec__wave span:nth-child(2) {
+  height: 70%;
+  animation-delay: 0.12s;
+}
+.voice-rec__wave span:nth-child(3) {
+  height: 100%;
+  animation-delay: 0.24s;
+}
+.voice-rec__wave span:nth-child(4) {
+  height: 55%;
+  animation-delay: 0.36s;
+}
+.voice-rec__wave span:nth-child(5) {
+  height: 80%;
+  animation-delay: 0.48s;
+}
+
+@keyframes voice-rec-wave {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
 .island__send {
   background: rgba(255, 255, 255, 0.92);
   color: #1a1012;

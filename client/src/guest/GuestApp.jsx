@@ -3,6 +3,8 @@ import { io } from "socket.io-client";
 import { Coffee, Heart, Mic, Phone, Video } from "lucide-react";
 import CallInvite from "../components/CallInvite.jsx";
 import VoicePlayer from "../components/VoicePlayer.jsx";
+import VoiceRecordBar from "../components/VoiceRecordBar.jsx";
+import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
 import { apiUrl, mediaUrl, socketUrl } from "../lib/api.js";
 
 const COOKIE_KEY = "queenema_cookies";
@@ -71,12 +73,28 @@ export default function GuestApp() {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [islandOpen, setIslandOpen] = useState(false);
-  const [recording, setRecording] = useState(false);
   const socketRef = useRef(null);
   const bottomRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
   const islandRef = useRef(null);
+  const {
+    recording,
+    elapsed: recElapsed,
+    start: startRec,
+    cancel: cancelRec,
+    send: sendRec,
+  } = useVoiceRecorder({
+    onSend: (audio, mime, durationSec) => {
+      if (!socketRef.current || !conversation?.id) return;
+      setError("");
+      socketRef.current.emit("send_voice", {
+        conversationId: conversation.id,
+        audio,
+        mime,
+        durationSec,
+      });
+    },
+    onError: (msg) => setError(msg),
+  });
 
   const refreshGate = useCallback(async () => {
     try {
@@ -308,65 +326,6 @@ export default function GuestApp() {
     setIslandOpen(false);
   }
 
-  async function toggleVoice() {
-    if (recording) {
-      try {
-        mediaRecorderRef.current?.requestData?.();
-      } catch {
-        /* ignore */
-      }
-      mediaRecorderRef.current?.stop();
-      setRecording(false);
-      return;
-    }
-    if (!conversation?.features?.voice) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/webm")
-          ? "audio/webm"
-          : MediaRecorder.isTypeSupported("audio/mp4")
-            ? "audio/mp4"
-            : "";
-      const recorder = mime
-        ? new MediaRecorder(stream, { mimeType: mime })
-        : new MediaRecorder(stream);
-      chunksRef.current = [];
-      const startedAt = performance.now();
-      recorder.ondataavailable = (ev) => {
-        if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
-      };
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const durationSec = Math.max(0.4, (performance.now() - startedAt) / 1000);
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType || mime || "audio/webm",
-        });
-        if (blob.size < 100) {
-          setError("Snimka je prekratka — drži mic duže.");
-          return;
-        }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setError("");
-          socketRef.current?.emit("send_voice", {
-            conversationId: conversation.id,
-            audio: reader.result,
-            mime: blob.type,
-            durationSec,
-          });
-        };
-        reader.readAsDataURL(blob);
-      };
-      mediaRecorderRef.current = recorder;
-      recorder.start(200);
-      setRecording(true);
-    } catch {
-      setError("Mikrofon nije dostupan.");
-    }
-  }
-
   if (apiOk === false) {
     return (
       <div className="guest-page">
@@ -505,32 +464,40 @@ export default function GuestApp() {
           <div ref={bottomRef} />
         </div>
 
-        <form
-          className={`island island--bar guest-composer${features.voice ? "" : " island--nomic"}`}
-          onSubmit={sendText}
-        >
-          {features.voice ? (
-            <button
-              type="button"
-              className={`island__mic ${recording ? "is-rec" : ""}`}
-              onClick={toggleVoice}
-              aria-label={recording ? "Stop snimanje" : "Glasovna"}
-            >
-              <Mic size={18} />
-            </button>
-          ) : null}
-          <input
-            className="island__input"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Poruka…"
-            maxLength={maxChars}
-            enterKeyHint="send"
+        {recording ? (
+          <VoiceRecordBar
+            elapsed={recElapsed}
+            onCancel={cancelRec}
+            onSend={sendRec}
           />
-          <button className="island__send" type="submit" disabled={!draft.trim()}>
-            ↑
-          </button>
-        </form>
+        ) : (
+          <form
+            className={`island island--bar guest-composer${features.voice ? "" : " island--nomic"}`}
+            onSubmit={sendText}
+          >
+            {features.voice ? (
+              <button
+                type="button"
+                className="island__mic"
+                onClick={startRec}
+                aria-label="Glasovna"
+              >
+                <Mic size={18} />
+              </button>
+            ) : null}
+            <input
+              className="island__input"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Poruka…"
+              maxLength={maxChars}
+              enterKeyHint="send"
+            />
+            <button className="island__send" type="submit" disabled={!draft.trim()}>
+              ↑
+            </button>
+          </form>
+        )}
         {error ? <p className="err pad">{error}</p> : null}
       </div>
     );
