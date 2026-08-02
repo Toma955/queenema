@@ -72,17 +72,23 @@ function CtaButton({
 
 export default function Home({
   user,
+  isAdmin = false,
   requests = [],
   conversations = [],
+  allConversations = [],
   leaderboard = { byScore: [], byMessages: [] },
   settings,
+  emaProfile = null,
   onAccept,
   onReject,
   onOpenConversation,
   onSetPatience,
   onSetAcceptNew,
+  onEndConversation,
+  onWipeConversation,
   onLogout,
   onUpdateProfile,
+  onUpdateEmaProfile,
   themeId,
   themes,
   onSetTheme,
@@ -630,6 +636,24 @@ export default function Home({
                           />
                         </div>
                       ) : null}
+                      {isAdmin ? (
+                        <div className="home__admin-row">
+                          <button
+                            type="button"
+                            className="ghost-btn"
+                            onClick={() => onEndConversation?.(c.id)}
+                          >
+                            Završi
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-btn"
+                            onClick={() => onWipeConversation?.(c.id)}
+                          >
+                            Obriši
+                          </button>
+                        </div>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -706,6 +730,9 @@ export default function Home({
             </button>
           </div>
           <form className="sheet__form" onSubmit={saveProfile}>
+            <p className="muted tiny">
+              {isAdmin ? "Tvoj admin račun (nije Ema)." : "Tvoj Emine račun."}
+            </p>
             <label>
               Ime
               <input value={name} onChange={(e) => setName(e.target.value)} required />
@@ -741,6 +768,52 @@ export default function Home({
             </button>
             {saveMsg ? <p className="muted">{saveMsg}</p> : null}
           </form>
+          {isAdmin ? (
+            <form
+              className="sheet__form"
+              style={{ marginTop: "1rem" }}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                setSaving(true);
+                const result = await onUpdateEmaProfile?.({
+                  name: String(fd.get("emaName") || "") || undefined,
+                  username: String(fd.get("emaUser") || "") || undefined,
+                  password: String(fd.get("emaPass") || "") || undefined,
+                });
+                setSaving(false);
+                setSaveMsg(
+                  result?.ok
+                    ? "Ema račun ažuriran."
+                    : result?.error || "Greška."
+                );
+              }}
+            >
+              <h3 style={{ margin: "0 0 0.35rem" }}>Ema račun</h3>
+              <p className="muted tiny">
+                Trenutno: {emaProfile?.name || "Ema"} (@
+                {emaProfile?.username || "ema"})
+              </p>
+              <label>
+                Ime
+                <input name="emaName" placeholder={emaProfile?.name || "Ema"} />
+              </label>
+              <label>
+                Username
+                <input
+                  name="emaUser"
+                  placeholder={emaProfile?.username || "ema"}
+                />
+              </label>
+              <label>
+                Nova lozinka
+                <input name="emaPass" type="password" />
+              </label>
+              <button type="submit" className="login__btn" disabled={saving}>
+                Spremi Emu
+              </button>
+            </form>
+          ) : null}
         </div>
       ) : null}
 

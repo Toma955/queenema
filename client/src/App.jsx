@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useEma } from "./hooks/useEma.js";
+import { useStaff } from "./hooks/useStaff.js";
 import { useTheme } from "./hooks/useTheme.js";
 import { apiUrl } from "./lib/api.js";
-import { isGuestMode } from "./lib/host.js";
+import { isAdminHost, isGuestMode } from "./lib/host.js";
 import Preloader from "./components/Preloader.jsx";
 
 function previewMode() {
@@ -25,14 +25,15 @@ async function warmFonts() {
 }
 
 export default function App() {
-  // queenema.art = korisnik; Vercel / localhost = Ema
   const guestMode = useMemo(() => isGuestMode(), []);
+  const adminMode = useMemo(() => isAdminHost(), []);
+  const staffMode = adminMode ? "admin" : "ema";
   const [bootProgress, setBootProgress] = useState(0);
   const [bootLabel, setBootLabel] = useState("Pripremam…");
   const [ready, setReady] = useState(false);
   const [apiOk, setApiOk] = useState(null);
   const [Mods, setMods] = useState(null);
-  const ema = useEma();
+  const staff = useStaff(staffMode);
   const theme = useTheme();
   const preview = useMemo(() => previewMode(), []);
 
@@ -89,7 +90,7 @@ export default function App() {
           return;
         }
 
-        setBootLabel("Učitavam komponente…");
+        setBootLabel(adminMode ? "Učitavam admin…" : "Učitavam komponente…");
         setBootProgress(8);
         const [
           { default: Login },
@@ -157,7 +158,7 @@ export default function App() {
       cancelled = true;
       if (id) clearInterval(id);
     };
-  }, [checkApi, preview, guestMode]);
+  }, [checkApi, preview, guestMode, adminMode]);
 
   if (!ready || !Mods) {
     return (
@@ -210,34 +211,48 @@ export default function App() {
         <FloatingPathsBackground position={-1} className="h-full min-h-0">
           {preview ? (
             <Preview mode={preview} />
-          ) : !ema.user ? (
-            <Login onLogin={ema.login} joining={ema.joining} error={ema.error} />
-          ) : ema.activeId ? (
+          ) : !staff.user ? (
+            <Login
+              variant={adminMode ? "admin" : "ema"}
+              onLogin={staff.login}
+              joining={staff.joining}
+              error={staff.error}
+            />
+          ) : staff.activeId ? (
             <ConversationView
-              conversation={ema.active}
-              messages={ema.messages}
-              error={ema.error}
-              onBack={() => ema.setActiveId(null)}
-              onPatience={ema.setPatience}
-              onSend={ema.send}
-              onSendVoice={ema.sendVoice}
-              onReactMessage={ema.reactMessage}
-              onSendCall={ema.sendCall}
+              conversation={staff.active}
+              messages={staff.messages}
+              error={staff.error}
+              isAdmin={staff.isAdmin}
+              onBack={() => staff.setActiveId(null)}
+              onPatience={staff.setPatience}
+              onSend={staff.send}
+              onSendVoice={staff.sendVoice}
+              onReactMessage={staff.reactMessage}
+              onSendCall={staff.sendCall}
+              onEnd={() => staff.endConversation()}
+              onWipe={() => staff.wipeConversation()}
             />
           ) : (
             <Home
-              user={ema.user}
-              requests={ema.requests}
-              conversations={ema.conversations}
-              leaderboard={ema.leaderboard}
-              settings={ema.settings}
-              onAccept={ema.acceptRequest}
-              onReject={ema.rejectRequest}
-              onOpenConversation={ema.setActiveId}
-              onSetPatience={ema.setPatience}
-              onSetAcceptNew={ema.setAcceptNew}
-              onLogout={ema.logout}
-              onUpdateProfile={ema.updateProfile}
+              user={staff.user}
+              isAdmin={staff.isAdmin}
+              requests={staff.requests}
+              conversations={staff.conversations}
+              allConversations={staff.allConversations}
+              leaderboard={staff.leaderboard}
+              settings={staff.settings}
+              emaProfile={staff.emaProfile}
+              onAccept={staff.acceptRequest}
+              onReject={staff.rejectRequest}
+              onOpenConversation={staff.setActiveId}
+              onSetPatience={staff.setPatience}
+              onSetAcceptNew={staff.setAcceptNew}
+              onEndConversation={staff.endConversation}
+              onWipeConversation={staff.wipeConversation}
+              onLogout={staff.logout}
+              onUpdateProfile={staff.updateProfile}
+              onUpdateEmaProfile={staff.updateEmaAsAdmin}
               themeId={theme.themeId}
               themes={theme.themes}
               onSetTheme={theme.setTheme}

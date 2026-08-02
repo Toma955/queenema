@@ -1,4 +1,6 @@
-export default function Login({ onLogin, joining, error }) {
+export default function Login({ onLogin, joining, error, variant = "ema" }) {
+  const isAdmin = variant === "admin";
+
   function handleSubmit(event) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -10,11 +12,15 @@ export default function Login({ onLogin, joining, error }) {
       <div className="login__atmosphere" aria-hidden />
       <div className="login__stack">
         <div className="login__hero">
-          <p className="login__eyebrow">Ema</p>
+          <p className="login__eyebrow">{isAdmin ? "Admin" : "Ema"}</p>
           <h1 className="login__brand">
             <span className="qe">Q</span>ueen<span className="qe">E</span>ma
           </h1>
-          <p className="login__lead">Tvoj prostor. Tvoja pravila.</p>
+          <p className="login__lead">
+            {isAdmin
+              ? "Sustavne kontrole + sve što Ema i korisnik koriste. Bez cookies."
+              : "Tvoj prostor. Tvoja pravila."}
+          </p>
         </div>
         <form className="login__form" onSubmit={handleSubmit}>
           <label className="login__field">
@@ -22,9 +28,9 @@ export default function Login({ onLogin, joining, error }) {
             <input
               className="login__input"
               name="username"
-              placeholder="ema"
+              placeholder={isAdmin ? "admin" : "ema"}
               autoComplete="username"
-              defaultValue="ema"
+              defaultValue={isAdmin ? "admin" : "ema"}
               required
             />
           </label>
@@ -36,7 +42,7 @@ export default function Login({ onLogin, joining, error }) {
               type="password"
               placeholder="••••"
               autoComplete="current-password"
-              defaultValue="ema"
+              defaultValue={isAdmin ? "admin" : "ema"}
               required
             />
           </label>

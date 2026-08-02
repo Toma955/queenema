@@ -537,6 +537,18 @@ button {
   color: #f0a89c;
 }
 
+.conv__admin-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.conv__wipe-btn {
+  color: #ffb4b4 !important;
+}
+
 .ema-tools {
   display: flex;
   flex-wrap: wrap;
@@ -1199,6 +1211,13 @@ button {
 
 .home__patience {
   padding: 0.35rem 0.15rem 0.15rem;
+}
+
+.home__admin-row {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0 0.85rem 0.55rem;
+  justify-content: flex-end;
 }
 
 .home__empty {
