@@ -326,7 +326,17 @@ export default function ConversationView({
 
   const ended = conversation?.status === "ended";
   const guestName = conversation?.guestName || "Gost";
-  const features = conversation?.features || {};
+  // Ema/admin: sve otvoreno. Unlock vrijedi samo za gosta.
+  const features = {
+    voice: true,
+    photo: true,
+    call: true,
+    video: true,
+    heart: true,
+    coffee: true,
+    smile: true,
+    like: true,
+  };
 
   return (
     <section className={`conv ${interestOpen ? "conv--interest" : ""}`}>
@@ -451,6 +461,10 @@ export default function ConversationView({
           }
           const mine = m.from === "ema";
           const canReact = REACTABLE.has(m.type) && !ended;
+          const pending = !m.status || m.status === "pending";
+          const canRespondInvite = !mine && !ended && pending;
+          const isCoffee =
+            m.type === "coffee" || (m.type === "reaction" && m.reaction === "coffee");
           return (
             <article
               key={m.id}
@@ -466,29 +480,37 @@ export default function ConversationView({
                   durationHint={Number(m.duration_sec || m.durationSec) || 0}
                 />
               ) : m.type === "photo" ? (
-                <img
-                  className="msg__img"
-                  src={mediaSrc(m.media_url || m.mediaUrl)}
-                  alt="Slika"
-                  loading="lazy"
-                />
-              ) : m.type === "reaction" ? (
-                <p className="msg__react">{m.text}</p>
+                <a
+                  className="msg__img-wrap"
+                  href={mediaSrc(m.media_url || m.mediaUrl)}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <img
+                    className="msg__img"
+                    src={mediaSrc(m.media_url || m.mediaUrl)}
+                    alt="Slika"
+                    loading="lazy"
+                  />
+                </a>
               ) : m.type === "call" || m.type === "video" ? (
                 <CallInvite
                   kind={m.type === "video" ? "video" : "call"}
                   fromLabel={m.from === "ema" ? "Ema" : guestName}
                   status={m.status || "pending"}
-                  canRespond={!mine && !ended && (m.status || "pending") === "pending"}
+                  canRespond={canRespondInvite}
                   onRespond={(answer) => onRespondInvite?.(m.id, answer)}
                 />
-              ) : m.type === "coffee" ? (
+              ) : isCoffee ? (
                 <CoffeeAsk
                   fromLabel={m.from === "ema" ? "Ema" : guestName}
                   status={m.status || "pending"}
-                  canRespond={!mine && !ended && (m.status || "pending") === "pending"}
+                  canRespond={canRespondInvite}
                   onRespond={(answer) => onRespondInvite?.(m.id, answer)}
                 />
+              ) : m.type === "reaction" ? (
+                <p className="msg__react">{m.text}</p>
               ) : (
                 <p className="msg__text">{m.text}</p>
               )}

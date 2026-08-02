@@ -25,29 +25,41 @@ function MessageBubble({ m, onRespondInvite }) {
     return <p className="guest-system">{m.text}</p>;
   }
   const mine = m.from === "guest";
-  const pending = (m.status || "pending") === "pending";
+  const pending = !m.status || m.status === "pending";
+  const canRespond = !mine && pending;
+  const isCoffee =
+    m.type === "coffee" || (m.type === "reaction" && m.reaction === "coffee");
+  const photoSrc = m.media_url || m.mediaUrl;
+
   return (
     <div className={`guest-bubble ${mine ? "mine" : ""}`}>
-      {m.type === "voice" && m.media_url ? (
+      {m.type === "voice" && photoSrc ? (
         <VoicePlayer
-          src={mediaUrl(m.media_url)}
+          src={mediaUrl(m.media_url || m.mediaUrl)}
           durationHint={Number(m.duration_sec || m.durationSec) || 0}
         />
-      ) : m.type === "photo" && m.media_url ? (
-        <img className="msg__img" src={mediaUrl(m.media_url)} alt="Slika" loading="lazy" />
+      ) : m.type === "photo" && photoSrc ? (
+        <a
+          className="msg__img-wrap"
+          href={mediaUrl(photoSrc)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <img className="msg__img" src={mediaUrl(photoSrc)} alt="Slika" loading="lazy" />
+        </a>
       ) : m.type === "call" || m.type === "video" ? (
         <CallInvite
           kind={m.type === "video" ? "video" : "call"}
           fromLabel={m.from === "ema" ? "Ema" : "Ti"}
           status={m.status || "pending"}
-          canRespond={!mine && pending}
+          canRespond={canRespond}
           onRespond={(answer) => onRespondInvite?.(m.id, answer)}
         />
-      ) : m.type === "coffee" ? (
+      ) : isCoffee ? (
         <CoffeeAsk
           fromLabel={m.from === "ema" ? "Ema" : "Ti"}
           status={m.status || "pending"}
-          canRespond={!mine && pending}
+          canRespond={canRespond}
           onRespond={(answer) => onRespondInvite?.(m.id, answer)}
         />
       ) : m.type === "reaction" ? (
@@ -185,6 +197,7 @@ export default function GuestApp() {
   useEffect(() => {
     if (!guestToken || cookieConsent !== "accepted") return undefined;
     const socket = io(socketUrl(), {
+      path: "/socket.io",
       transports: ["websocket", "polling"],
       auth: { role: "guest", guestToken },
     });

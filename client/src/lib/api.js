@@ -1,8 +1,15 @@
 /** API base for production (Render). Empty in local Vite = same-origin proxy. */
-export const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const FALLBACK_PROD = "https://queenema-api-node.onrender.com";
+
+export const API_URL = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? FALLBACK_PROD : "") ||
+  ""
+).replace(/\/$/, "");
 
 export function apiUrl(path) {
-  return `${API_URL}${path}`;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${API_URL}${p}`;
 }
 
 export function mediaUrl(path) {
