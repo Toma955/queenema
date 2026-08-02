@@ -242,6 +242,7 @@ export default function ConversationView({
   onSendVoice,
   onReactMessage,
   onSendCall,
+  onSendReaction,
   onEnd,
   onWipe,
   isAdmin = false,
@@ -250,17 +251,25 @@ export default function ConversationView({
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
   const [interestOpen, setInterestOpen] = useState(false);
+  const [draftPatience, setDraftPatience] = useState(null);
   const [reactId, setReactId] = useState(null);
   const bottomRef = useRef(null);
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
   const interestRef = useRef(null);
 
-  const patience = conversation?.patience ?? 50;
+  const patience =
+    draftPatience != null
+      ? draftPatience
+      : conversation?.patience ?? 50;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!interestOpen) setDraftPatience(null);
+  }, [interestOpen]);
 
   useEffect(() => {
     if (!interestOpen) return;
@@ -346,7 +355,8 @@ export default function ConversationView({
               {guestName}
             </button>
           </div>
-          {!ended && (features.call || features.video) ? (
+          {!ended &&
+          (features.call || features.video || features.heart || features.coffee) ? (
             <div className="conv__call-actions">
               {features.call ? (
                 <button
@@ -366,6 +376,26 @@ export default function ConversationView({
                   onClick={() => onSendCall?.("video")}
                 >
                   <Video size={16} />
+                </button>
+              ) : null}
+              {features.heart ? (
+                <button
+                  type="button"
+                  className="conv__call-btn"
+                  title="Srce"
+                  onClick={() => onSendReaction?.("heart")}
+                >
+                  <Heart size={16} />
+                </button>
+              ) : null}
+              {features.coffee ? (
+                <button
+                  type="button"
+                  className="conv__call-btn"
+                  title="Kava / dejt"
+                  onClick={() => onSendReaction?.("coffee")}
+                >
+                  <Coffee size={16} />
                 </button>
               ) : null}
             </div>
@@ -392,7 +422,11 @@ export default function ConversationView({
 
           <PatienceBar
             value={patience}
-            onChange={onPatience}
+            onChange={setDraftPatience}
+            onCommit={(v) => {
+              setDraftPatience(v);
+              onPatience?.(v);
+            }}
             readonly={ended}
           />
           <p className="conv__score">score {patience}</p>

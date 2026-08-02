@@ -20,26 +20,41 @@ function pearColor(pct) {
 }
 
 /**
- * Rail = od centra lijeve do centra desne ikone (7 chipova, space-between).
- * left pad = half chip → 0% pod Prekid, 50% pod ∞, 100% pod Kava.
+ * Rail = od centra lijeve do centra desne ikone.
+ * onChange = uživo dok vuče; onCommit = kad pusti (jedan put na server).
  */
 export default function PatienceBar({
   value = 50,
   onChange,
+  onCommit,
   readonly,
   ariaLabel = "Faktor zainteresiranosti",
 }) {
   const pct = Math.max(0, Math.min(100, Number(value) || 0));
   const trackRef = useRef(null);
   const dragging = useRef(false);
+  const latest = useRef(pct);
   const accent = pearColor(pct);
+  latest.current = pct;
+
+  function valueFromClientX(clientX) {
+    if (readonly || !trackRef.current) return null;
+    const rect = trackRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return null;
+    const raw = ((clientX - rect.left) / rect.width) * 100;
+    return Math.round(Math.max(0, Math.min(100, raw)));
+  }
 
   function setFromClientX(clientX) {
-    if (readonly || !trackRef.current) return;
-    const rect = trackRef.current.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const raw = ((clientX - rect.left) / rect.width) * 100;
-    onChange?.(Math.round(Math.max(0, Math.min(100, raw))));
+    const next = valueFromClientX(clientX);
+    if (next == null) return;
+    latest.current = next;
+    onChange?.(next);
+  }
+
+  function commit() {
+    const v = latest.current;
+    onCommit?.(v);
   }
 
   function onPointerDown(e) {
@@ -56,8 +71,14 @@ export default function PatienceBar({
   }
 
   function onPointerUp(e) {
+    if (!dragging.current) return;
     dragging.current = false;
-    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    try {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    commit();
   }
 
   return (
@@ -77,19 +98,24 @@ export default function PatienceBar({
       aria-disabled={readonly || undefined}
       onKeyDown={(e) => {
         if (readonly) return;
+        let next = null;
         if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
           e.preventDefault();
-          onChange?.(Math.max(0, pct - 1));
+          next = Math.max(0, pct - 1);
         } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
           e.preventDefault();
-          onChange?.(Math.min(100, pct + 1));
+          next = Math.min(100, pct + 1);
         } else if (e.key === "Home") {
           e.preventDefault();
-          onChange?.(0);
+          next = 0;
         } else if (e.key === "End") {
           e.preventDefault();
-          onChange?.(100);
+          next = 100;
         }
+        if (next == null) return;
+        latest.current = next;
+        onChange?.(next);
+        onCommit?.(next);
       }}
     >
       <div className="patience__rail" ref={trackRef}>

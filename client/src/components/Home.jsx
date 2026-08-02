@@ -105,6 +105,7 @@ export default function Home({
   const holdRef = useRef({ timer: null, suppressClick: false });
   const [msgMode, setMsgMode] = useState("reply");
   const [patienceId, setPatienceId] = useState(null);
+  const [patienceDraft, setPatienceDraft] = useState(null);
   const [name, setName] = useState(user?.name || "Ema");
   const [username, setUsername] = useState(user?.username || "ema");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -630,9 +631,19 @@ export default function Home({
                       {msgMode === "patience" && patienceId === c.id ? (
                         <div className="home__patience">
                           <PatienceBar
-                            value={patienceConv?.patience ?? c.patience ?? 50}
-                            features={c.features}
-                            onChange={(v) => onSetPatience?.(v, c.id)}
+                            value={
+                              patienceId === c.id && patienceDraft != null
+                                ? patienceDraft
+                                : patienceConv?.patience ?? c.patience ?? 50
+                            }
+                            onChange={(v) => {
+                              setPatienceId(c.id);
+                              setPatienceDraft(v);
+                            }}
+                            onCommit={(v) => {
+                              setPatienceDraft(null);
+                              onSetPatience?.(v, c.id);
+                            }}
                           />
                         </div>
                       ) : null}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { Mic, Phone, Video } from "lucide-react";
+import { Coffee, Heart, Mic, Phone, Video } from "lucide-react";
 import { apiUrl, mediaUrl, socketUrl } from "../lib/api.js";
 
 const COOKIE_KEY = "queenema_cookies";
@@ -291,6 +291,15 @@ export default function GuestApp() {
     setIslandOpen(false);
   }
 
+  function sendReaction(kind) {
+    if (!socketRef.current || !conversation?.id) return;
+    socketRef.current.emit("send_reaction", {
+      conversationId: conversation.id,
+      kind,
+    });
+    setIslandOpen(false);
+  }
+
   async function toggleVoice() {
     if (recording) {
       mediaRecorderRef.current?.stop();
@@ -412,6 +421,22 @@ export default function GuestApp() {
             label: "Videopoziv",
             Icon: Video,
             onClick: () => sendCall("video"),
+          }
+        : null,
+      features.heart
+        ? {
+            id: "heart",
+            label: "Srce",
+            Icon: Heart,
+            onClick: () => sendReaction("heart"),
+          }
+        : null,
+      features.coffee
+        ? {
+            id: "coffee",
+            label: "Kava / dejt",
+            Icon: Coffee,
+            onClick: () => sendReaction("coffee"),
           }
         : null,
     ].filter(Boolean);

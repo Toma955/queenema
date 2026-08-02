@@ -230,6 +230,7 @@ export default function App() {
               onSendVoice={staff.sendVoice}
               onReactMessage={staff.reactMessage}
               onSendCall={staff.sendCall}
+              onSendReaction={staff.sendReaction}
               onEnd={() => staff.endConversation()}
               onWipe={() => staff.wipeConversation()}
             />
