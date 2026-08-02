@@ -320,6 +320,7 @@ export default function ConversationView({
 
   const ended = conversation?.status === "ended";
   const guestName = conversation?.guestName || "Gost";
+  const features = conversation?.features || {};
 
   return (
     <section className={`conv ${interestOpen ? "conv--interest" : ""}`}>
@@ -342,24 +343,28 @@ export default function ConversationView({
               {guestName}
             </button>
           </div>
-          {!ended ? (
+          {!ended && (features.call || features.video) ? (
             <div className="conv__call-actions">
-              <button
-                type="button"
-                className="conv__call-btn"
-                title="Poziv"
-                onClick={() => onSendCall?.("call")}
-              >
-                <Phone size={16} />
-              </button>
-              <button
-                type="button"
-                className="conv__call-btn"
-                title="Videopoziv"
-                onClick={() => onSendCall?.("video")}
-              >
-                <Video size={16} />
-              </button>
+              {features.call ? (
+                <button
+                  type="button"
+                  className="conv__call-btn"
+                  title="Poziv"
+                  onClick={() => onSendCall?.("call")}
+                >
+                  <Phone size={16} />
+                </button>
+              ) : null}
+              {features.video ? (
+                <button
+                  type="button"
+                  className="conv__call-btn"
+                  title="Videopoziv"
+                  onClick={() => onSendCall?.("video")}
+                >
+                  <Video size={16} />
+                </button>
+              ) : null}
             </div>
           ) : (
             <span className="conv__head-spacer" aria-hidden />
@@ -396,6 +401,13 @@ export default function ConversationView({
 
       <div className="chat-stream">
         {messages.map((m) => {
+          if (m.type === "system") {
+            return (
+              <p key={m.id} className="msg msg--system">
+                {m.text}
+              </p>
+            );
+          }
           const mine = m.from === "ema";
           const canReact = REACTABLE.has(m.type) && !ended;
           return (

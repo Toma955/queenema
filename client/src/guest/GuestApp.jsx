@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { Mic, Phone, Video } from "lucide-react";
 import { apiUrl, mediaUrl, socketUrl } from "../lib/api.js";
 
 const COOKIE_KEY = "queenema_cookies";
@@ -8,6 +9,26 @@ function detectDevice() {
   const ua = navigator.userAgent || "";
   const mobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
   return { device: mobile ? "mobile" : "desktop", userAgent: ua };
+}
+
+function MessageBubble({ m }) {
+  if (m.type === "system") {
+    return <p className="guest-system">{m.text}</p>;
+  }
+  const mine = m.from === "guest";
+  return (
+    <div className={`guest-bubble ${mine ? "mine" : ""}`}>
+      {m.type === "voice" && m.media_url ? (
+        <audio controls src={mediaUrl(m.media_url)} />
+      ) : m.type === "call" || m.type === "video" ? (
+        <p className="guest-bubble__call">{m.text}</p>
+      ) : m.type === "reaction" ? (
+        <p className="guest-bubble__react">{m.text}</p>
+      ) : (
+        <p>{m.text}</p>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -41,8 +62,13 @@ export default function GuestApp() {
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
+  const [islandOpen, setIslandOpen] = useState(false);
+  const [recording, setRecording] = useState(false);
   const socketRef = useRef(null);
   const bottomRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const islandRef = useRef(null);
 
   const refreshGate = useCallback(async () => {
     try {
@@ -99,6 +125,9 @@ export default function GuestApp() {
       setMessages(payload.messages || []);
       setPhase("chat");
     });
+    socket.on("patience", ({ conversation: next }) => {
+      if (next) setConversation(next);
+    });
     socket.on("new_message", (message) => {
       setMessages((prev) =>
         prev.some((m) => m.id === message.id) ? prev : [...prev, message]
@@ -144,6 +173,16 @@ export default function GuestApp() {
       socketRef.current = null;
     };
   }, [guestToken, cookieConsent]);
+
+  useEffect(() => {
+    if (!islandOpen) return undefined;
+    function onDown(e) {
+      if (islandRef.current?.contains(e.target)) return;
+      setIslandOpen(false);
+    }
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [islandOpen]);
 
   function onAvatarChange(e) {
     const file = e.target.files?.[0];
@@ -243,6 +282,53 @@ export default function GuestApp() {
     setDraft("");
   }
 
+  function sendCall(kind) {
+    if (!socketRef.current || !conversation?.id) return;
+    socketRef.current.emit("send_call", {
+      conversationId: conversation.id,
+      kind,
+    });
+    setIslandOpen(false);
+  }
+
+  async function toggleVoice() {
+    if (recording) {
+      mediaRecorderRef.current?.stop();
+      setRecording(false);
+      return;
+    }
+    if (!conversation?.features?.voice) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      chunksRef.current = [];
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size) chunksRef.current.push(ev.data);
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          socketRef.current?.emit("send_voice", {
+            conversationId: conversation.id,
+            audio: reader.result,
+            mime: blob.type,
+          });
+        };
+        reader.readAsDataURL(blob);
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setError("Mikrofon nije dostupan.");
+    }
+  }
+
   if (apiOk === false) {
     return (
       <div className="guest-page">
@@ -313,33 +399,83 @@ export default function GuestApp() {
   }
 
   if (phase === "chat" && conversation) {
+    const features = conversation.features || {};
+    const patience = conversation.patience ?? 50;
+    const maxChars = features.maxChars ?? 2000;
+    const islandActions = [
+      features.call
+        ? { id: "call", label: "Poziv", Icon: Phone, onClick: () => sendCall("call") }
+        : null,
+      features.video
+        ? {
+            id: "video",
+            label: "Videopoziv",
+            Icon: Video,
+            onClick: () => sendCall("video"),
+          }
+        : null,
+    ].filter(Boolean);
+
     return (
       <div className="guest-page guest-page--chat">
-        <header className="guest-chat-head">
-          <strong>Ema</strong>
-        </header>
-        <div className="guest-chat-stream">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`guest-bubble ${m.from === "guest" ? "mine" : ""}`}
-            >
-              {m.type === "voice" && m.media_url ? (
-                <audio controls src={mediaUrl(m.media_url)} />
+        <div className="guest-top" ref={islandRef}>
+          <button
+            type="button"
+            className={`guest-top-island${islandOpen ? " is-open" : ""}`}
+            onClick={() => setIslandOpen((v) => !v)}
+            aria-expanded={islandOpen}
+          >
+            <span>Ema</span>
+            <span className="guest-top-island__score">{patience}</span>
+          </button>
+          {islandOpen ? (
+            <div className="guest-top-menu">
+              {islandActions.length ? (
+                islandActions.map((a) => (
+                  <button key={a.id} type="button" onClick={a.onClick}>
+                    <a.Icon size={16} />
+                    {a.label}
+                  </button>
+                ))
               ) : (
-                <p>{m.text}</p>
+                <p className="guest-top-menu__empty">Nema otključanih akcija</p>
               )}
             </div>
+          ) : null}
+        </div>
+
+        <div className="guest-chat-stream">
+          {messages.map((m) => (
+            <MessageBubble key={m.id} m={m} />
           ))}
           <div ref={bottomRef} />
         </div>
-        <form className="guest-chat-form" onSubmit={sendText}>
+
+        <form
+          className={`island island--bar guest-composer${features.voice ? "" : " island--nomic"}`}
+          onSubmit={sendText}
+        >
+          {features.voice ? (
+            <button
+              type="button"
+              className={`island__mic ${recording ? "is-rec" : ""}`}
+              onClick={toggleVoice}
+              aria-label={recording ? "Stop snimanje" : "Glasovna"}
+            >
+              <Mic size={18} />
+            </button>
+          ) : null}
           <input
+            className="island__input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Poruka…"
+            maxLength={maxChars}
+            enterKeyHint="send"
           />
-          <button type="submit">Šalji</button>
+          <button className="island__send" type="submit" disabled={!draft.trim()}>
+            ↑
+          </button>
         </form>
         {error ? <p className="err pad">{error}</p> : null}
       </div>

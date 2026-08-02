@@ -1665,6 +1665,94 @@ button {
   font-size: 1.2rem;
 }
 
+.guest-top {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.5rem 0.6rem;
+  z-index: 6;
+}
+
+.guest-top-island {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 179, 106, 0.4);
+  background: rgba(18, 20, 28, 0.94);
+  color: var(--foam);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
+.guest-top-island.is-open {
+  border-color: rgba(214, 179, 106, 0.7);
+}
+
+.guest-top-island__score {
+  font-size: 0.78rem;
+  color: var(--gold);
+  opacity: 0.9;
+}
+
+.guest-top-menu {
+  display: grid;
+  gap: 0.35rem;
+  width: min(100%, 16rem);
+  padding: 0.45rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(14, 16, 22, 0.96);
+}
+
+.guest-top-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0.45rem 0.7rem;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--foam);
+  font: inherit;
+  cursor: pointer;
+}
+
+.guest-top-menu button:active {
+  background: rgba(214, 179, 106, 0.18);
+}
+
+.guest-top-menu__empty {
+  margin: 0;
+  padding: 0.55rem 0.4rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--mist);
+}
+
+.guest-system,
+.msg--system {
+  align-self: center;
+  max-width: 90%;
+  margin: 0.15rem 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--mist);
+  font-size: 0.72rem;
+  text-align: center;
+  line-height: 1.35;
+}
+
 .guest-chat-stream {
   flex: 1;
   min-height: 0;
@@ -1691,6 +1779,17 @@ button {
 .guest-bubble p {
   margin: 0;
   white-space: pre-wrap;
+}
+
+.guest-bubble__call,
+.guest-bubble__react {
+  font-weight: 600;
+}
+
+.guest-composer {
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
 }
 
 .guest-chat-form {
@@ -2416,6 +2515,10 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(18, 20, 28, 0.92);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.island--nomic {
+  grid-template-columns: 1fr auto;
 }
 
 .island__input {
