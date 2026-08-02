@@ -11,7 +11,6 @@ import {
   ThumbsUp,
   Video,
 } from "lucide-react";
-import GlassSurface from "./GlassSurface.jsx";
 import PatienceBar from "./PatienceBar.jsx";
 import { apiUrl } from "../lib/api.js";
 
@@ -436,39 +435,27 @@ export default function ConversationView({
       {error ? <p className="err pad">{error}</p> : null}
 
       {!ended ? (
-        <GlassSurface
-          width="auto"
-          height={62}
-          borderRadius={28}
-          backgroundOpacity={0.1}
-          saturation={1.5}
-          style={{
-            alignSelf: "stretch",
-            margin: "0 0.75rem calc(0.75rem + env(safe-area-inset-bottom))",
-          }}
-        >
-          <form className="island" onSubmit={submit}>
-            <button
-              type="button"
-              className={`island__mic ${recording ? "is-rec" : ""}`}
-              onClick={toggleVoice}
-              aria-label={recording ? "Stop snimanje" : "Glasovna"}
-            >
-              <Mic size={18} />
-            </button>
-            <input
-              className="island__input"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Poruka…"
-              maxLength={2000}
-              enterKeyHint="send"
-            />
-            <button className="island__send" type="submit" disabled={!text.trim()}>
-              ↑
-            </button>
-          </form>
-        </GlassSurface>
+        <form className="island island--bar" onSubmit={submit}>
+          <button
+            type="button"
+            className={`island__mic ${recording ? "is-rec" : ""}`}
+            onClick={toggleVoice}
+            aria-label={recording ? "Stop snimanje" : "Glasovna"}
+          >
+            <Mic size={18} />
+          </button>
+          <input
+            className="island__input"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Poruka…"
+            maxLength={2000}
+            enterKeyHint="send"
+          />
+          <button className="island__send" type="submit" disabled={!text.trim()}>
+            ↑
+          </button>
+        </form>
       ) : null}
     </section>
   );

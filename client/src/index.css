@@ -97,6 +97,28 @@ button {
   display: block;
   width: 100%;
   height: 100%;
+  color: var(--foam);
+}
+
+.floating-paths__stroke {
+  animation: float-path 14s ease-in-out infinite;
+}
+
+@keyframes float-path {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-paths__stroke {
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 .floating-paths__content {
@@ -1230,6 +1252,23 @@ button {
   font-size: 0.82rem;
 }
 
+.home__brand-panel {
+  width: 100%;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0.45rem 0.65rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(18, 20, 28, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  transition: min-height 0.28s ease;
+}
+
 .home__footer {
   flex-shrink: 0;
   display: grid;
@@ -1238,6 +1277,38 @@ button {
   padding-top: 0.75rem;
   margin-top: auto;
   width: 100%;
+  z-index: 5;
+}
+
+.home__cta-btn {
+  width: 100%;
+  min-height: 3.35rem;
+  margin: 0;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid rgba(214, 179, 106, 0.45);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #d6b36a, #b8923e);
+  color: #1a1408;
+  font-size: 1.02rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
+.home__cta-btn.is-on {
+  background: linear-gradient(145deg, #6ecf8f, #3d9e5f);
+  border-color: rgba(110, 207, 143, 0.55);
+  color: #06140c;
+}
+
+.home__cta-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.home__cta-btn:active {
+  transform: translateY(1px);
 }
 
 .glass-hit {
@@ -2107,6 +2178,19 @@ button {
   gap: 0.35rem;
   align-items: center;
   padding: 0.35rem 0.4rem;
+}
+
+.island--bar {
+  align-self: stretch;
+  margin: 0 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+  min-height: 3.6rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(18, 20, 28, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
 .island__input {

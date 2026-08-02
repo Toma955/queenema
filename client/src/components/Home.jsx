@@ -6,13 +6,7 @@ import {
   Settings,
 } from "lucide-react";
 import { apiUrl } from "../lib/api.js";
-import GlassSurface from "./ui/GlassSurface";
 import PatienceBar from "./PatienceBar.jsx";
-import GlassTunePanel, {
-  useGlassTune,
-  BRAND_HEIGHT,
-  CTA_HEIGHT,
-} from "./GlassTunePanel.jsx";
 
 const TABS = [
   { id: "requests", label: "Zahtjevi" },
@@ -26,6 +20,8 @@ const BRAND_ICONS = [
   { id: "faq", label: "Upitnik", Icon: CircleHelp },
   { id: "logout", label: "Odjava", Icon: LogOut, danger: true },
 ];
+
+const BRAND_HEIGHT = 72;
 
 const BRAND_HEIGHTS = {
   icons: 152,
@@ -53,30 +49,15 @@ function guestBaseUrl() {
   return "https://guest.queenema.art";
 }
 
-function GlassButton({ children, onClick, disabled, className = "", glass }) {
+function CtaButton({ children, onClick, disabled, className = "" }) {
   return (
     <button
       type="button"
-      className={`glass-hit ${className}`}
+      className={`home__cta-btn ${className}`}
       onClick={onClick}
       disabled={disabled}
     >
-      <GlassSurface
-        width="100%"
-        height={CTA_HEIGHT}
-        borderRadius={glass.borderRadius}
-        borderWidth={glass.borderWidth}
-        brightness={glass.brightness}
-        opacity={glass.opacity}
-        blur={glass.blur}
-        displace={glass.displace}
-        backgroundOpacity={glass.backgroundOpacity}
-        saturation={glass.saturation}
-        distortionScale={glass.distortionScale}
-        className="glass-hit__surface"
-      >
-        <span className="glass-hit__label">{children}</span>
-      </GlassSurface>
+      {children}
     </button>
   );
 }
@@ -126,7 +107,6 @@ export default function Home({
   const tabIndexRef = useRef(0);
   const brandRef = useRef(null);
   const windowsRef = useRef(null);
-  const glassTune = useGlassTune();
 
   useEffect(() => {
     tabIndexRef.current = tabIndex;
@@ -385,19 +365,9 @@ export default function Home({
             tabIndex={-1}
             onBlur={onBrandBlur}
           >
-            <GlassSurface
-              width="100%"
-              height={brandHeight}
-              borderRadius={glassTune.glass.borderRadius}
-              borderWidth={glassTune.glass.borderWidth}
-              brightness={glassTune.glass.brightness}
-              opacity={glassTune.glass.opacity}
-              blur={glassTune.glass.blur}
-              displace={glassTune.glass.displace}
-              backgroundOpacity={glassTune.glass.backgroundOpacity}
-              saturation={glassTune.glass.saturation}
-              distortionScale={glassTune.glass.distortionScale}
-              className="home__brand-glass"
+            <div
+              className="home__brand-panel"
+              style={{ minHeight: brandHeight }}
             >
               {!menuOpen ? (
                 <button
@@ -491,7 +461,7 @@ export default function Home({
                   </div>
                 </div>
               ) : null}
-            </GlassSurface>
+            </div>
           </div>
         </header>
 
@@ -801,23 +771,16 @@ export default function Home({
         </div>
       ) : null}
 
-      <GlassTunePanel tune={glassTune} />
-
       {!panel ? (
         <footer className="home__footer">
           {tab === "requests" ? (
-            <GlassButton
-              glass={glassTune.glass}
-              onClick={createLink}
-              disabled={linkBusy}
-            >
+            <CtaButton onClick={createLink} disabled={linkBusy}>
               {linkBusy ? "Stvaram…" : "Novi link"}
-            </GlassButton>
+            </CtaButton>
           ) : null}
 
           {tab === "messages" ? (
-            <GlassButton
-              glass={glassTune.glass}
+            <CtaButton
               onClick={() =>
                 setMsgMode((m) => {
                   const next = m === "reply" ? "patience" : "reply";
@@ -827,16 +790,16 @@ export default function Home({
               }
             >
               {msgMode === "patience" ? "Promijeni strpljenje" : "Odgovori"}
-            </GlassButton>
+            </CtaButton>
           ) : null}
 
           {tab === "analytics" ? (
-            <GlassButton
-              glass={glassTune.glass}
+            <CtaButton
+              className={shareOn ? "is-on" : ""}
               onClick={() => onSetAcceptNew?.(!shareOn)}
             >
               {shareOn ? "Podijeli uključeno" : "Podijeli isključeno"}
-            </GlassButton>
+            </CtaButton>
           ) : null}
         </footer>
       ) : null}
