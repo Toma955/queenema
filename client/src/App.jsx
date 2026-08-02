@@ -233,6 +233,7 @@ export default function App() {
               onSendCall={staff.sendCall}
               onSendReaction={staff.sendReaction}
               onRespondInvite={staff.respondInvite}
+              socketRef={staff.socketRef}
               onEnd={() => staff.endConversation()}
               onWipe={() => staff.wipeConversation()}
             />

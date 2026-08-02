@@ -17,6 +17,7 @@ import CoffeeAsk from "./CoffeeAsk.jsx";
 import VoicePlayer from "./VoicePlayer.jsx";
 import VoiceRecordBar from "./VoiceRecordBar.jsx";
 import PhotoPickerButton from "./PhotoPickerButton.jsx";
+import { TypingDots, useTyping } from "./TypingIndicator.jsx";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
 import { apiUrl } from "../lib/api.js";
 
@@ -253,6 +254,7 @@ export default function ConversationView({
   onRespondInvite,
   onEnd,
   onWipe,
+  socketRef = null,
   isAdmin = false,
   canSetInterest = true,
 }) {
@@ -262,6 +264,8 @@ export default function ConversationView({
   const [reactId, setReactId] = useState(null);
   const bottomRef = useRef(null);
   const interestRef = useRef(null);
+  const localSocketRef = useRef(null);
+  const typingSocketRef = socketRef || localSocketRef;
   const {
     recording,
     elapsed: recElapsed,
@@ -270,6 +274,13 @@ export default function ConversationView({
     send: sendRec,
   } = useVoiceRecorder({
     onSend: (audio, mime, durationSec) => onSendVoice?.(audio, mime, durationSec),
+  });
+
+  const peerTyping = useTyping({
+    socketRef: typingSocketRef,
+    conversationId: conversation?.id,
+    draft: text,
+    enabled: Boolean(conversation?.id) && conversation?.status !== "ended",
   });
 
   const patience =
@@ -494,6 +505,7 @@ export default function ConversationView({
             </article>
           );
         })}
+        {peerTyping ? <TypingDots label={`${guestName} tipka`} /> : null}
         <div ref={bottomRef} />
       </div>
 

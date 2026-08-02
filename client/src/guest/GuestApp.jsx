@@ -6,10 +6,13 @@ import CoffeeAsk from "../components/CoffeeAsk.jsx";
 import VoicePlayer from "../components/VoicePlayer.jsx";
 import VoiceRecordBar from "../components/VoiceRecordBar.jsx";
 import PhotoPickerButton from "../components/PhotoPickerButton.jsx";
+import { TypingDots, useTyping } from "../components/TypingIndicator.jsx";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
+import { clearChatCache, loadChatCache, saveChatCache } from "../lib/chatCache.js";
 import { apiUrl, mediaUrl, socketUrl } from "../lib/api.js";
 
 const COOKIE_KEY = "queenema_cookies";
+const GUEST_CACHE = "queenema_guest_chat";
 
 function detectDevice() {
   const ua = navigator.userAgent || "";
@@ -72,7 +75,15 @@ export default function GuestApp() {
   const [open, setOpen] = useState(false);
   const [occupied, setOccupied] = useState(false);
   const [gateError, setGateError] = useState("");
-  const [phase, setPhase] = useState("form");
+  const [guestToken, setGuestToken] = useState(
+    () => localStorage.getItem("queenema_guest") || ""
+  );
+  const [phase, setPhase] = useState(() => {
+    const token = localStorage.getItem("queenema_guest") || "";
+    const c = loadChatCache(GUEST_CACHE);
+    if (c?.guestToken === token && c.phase) return c.phase;
+    return "form";
+  });
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [bio, setBio] = useState("");
@@ -81,11 +92,16 @@ export default function GuestApp() {
   const [avatarData, setAvatarData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [guestToken, setGuestToken] = useState(
-    () => localStorage.getItem("queenema_guest") || ""
-  );
-  const [conversation, setConversation] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [conversation, setConversation] = useState(() => {
+    const token = localStorage.getItem("queenema_guest") || "";
+    const c = loadChatCache(GUEST_CACHE);
+    return c?.guestToken === token ? c.conversation || null : null;
+  });
+  const [messages, setMessages] = useState(() => {
+    const token = localStorage.getItem("queenema_guest") || "";
+    const c = loadChatCache(GUEST_CACHE);
+    return c?.guestToken === token && Array.isArray(c.messages) ? c.messages : [];
+  });
   const [draft, setDraft] = useState("");
   const [islandOpen, setIslandOpen] = useState(false);
   const socketRef = useRef(null);
@@ -110,6 +126,28 @@ export default function GuestApp() {
     },
     onError: (msg) => setError(msg),
   });
+
+  const peerTyping = useTyping({
+    socketRef,
+    conversationId: conversation?.id,
+    draft,
+    enabled: phase === "chat" && Boolean(conversation?.id),
+  });
+
+  useEffect(() => {
+    if (!guestToken) {
+      clearChatCache(GUEST_CACHE);
+      return;
+    }
+    if (phase === "chat" || phase === "pending") {
+      saveChatCache(GUEST_CACHE, {
+        guestToken,
+        phase,
+        conversation,
+        messages,
+      });
+    }
+  }, [guestToken, phase, conversation, messages]);
 
   const refreshGate = useCallback(async () => {
     try {
@@ -190,11 +228,14 @@ export default function GuestApp() {
     socket.on("request_rejected", (payload) => {
       if (payload.guestToken !== guestToken) return;
       setPhase("rejected");
+      clearChatCache(GUEST_CACHE);
       localStorage.removeItem("queenema_guest");
     });
     socket.on("conversation_ended", () => {
       setPhase("gone");
       setConversation(null);
+      setMessages([]);
+      clearChatCache(GUEST_CACHE);
       localStorage.removeItem("queenema_guest");
     });
     socket.on("conversation_wiped", (payload) => {
@@ -202,6 +243,7 @@ export default function GuestApp() {
       setPhase("gone");
       setConversation(null);
       setMessages([]);
+      clearChatCache(GUEST_CACHE);
       localStorage.removeItem("queenema_guest");
     });
     socket.on("error_message", (payload) => {
@@ -495,6 +537,7 @@ export default function GuestApp() {
           {messages.map((m) => (
             <MessageBubble key={m.id} m={m} onRespondInvite={respondInvite} />
           ))}
+          {peerTyping ? <TypingDots label="Ema tipka" /> : null}
           <div ref={bottomRef} />
         </div>
 

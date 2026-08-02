@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { apiUrl, socketUrl } from "../lib/api.js";
+import { clearChatCache, loadChatCache, saveChatCache } from "../lib/chatCache.js";
 
 /**
  * Ema ili Admin — isti UI/flow.
@@ -10,6 +11,7 @@ import { apiUrl, socketUrl } from "../lib/api.js";
 export function useStaff(mode = "ema") {
   const isAdmin = mode === "admin";
   const AUTH_KEY = isAdmin ? "queenema_admin_auth" : "queenema_ema_auth";
+  const CACHE_KEY = isAdmin ? "queenema_admin_chat" : "queenema_ema_chat";
   const loginPath = isAdmin ? "/api/admin/login" : "/api/login";
   const profilePath = isAdmin ? "/api/admin/profile" : "/api/ema/profile";
   const hello = isAdmin ? "admin_hello" : "ema_hello";
@@ -28,9 +30,12 @@ export function useStaff(mode = "ema") {
   const [allConversations, setAllConversations] = useState([]);
   const [leaderboard, setLeaderboard] = useState({ byScore: [], byMessages: [] });
   const [emaProfile, setEmaProfile] = useState(null);
-  const [activeId, setActiveId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [active, setActive] = useState(null);
+  const cachedChat = useMemo(() => loadChatCache(CACHE_KEY), [CACHE_KEY]);
+  const [activeId, setActiveId] = useState(() => cachedChat?.activeId ?? null);
+  const [active, setActive] = useState(() => cachedChat?.conversation ?? null);
+  const [messages, setMessages] = useState(() =>
+    Array.isArray(cachedChat?.messages) ? cachedChat.messages : []
+  );
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
   const socketRef = useRef(null);
@@ -84,6 +89,7 @@ export function useStaff(mode = "ema") {
 
   function logout() {
     localStorage.removeItem(AUTH_KEY);
+    clearChatCache(CACHE_KEY);
     socketRef.current?.disconnect();
     setUser(null);
     setActiveId(null);
@@ -192,6 +198,14 @@ export function useStaff(mode = "ema") {
       setAllConversations((prev) =>
         prev.map((c) => (c.id === conversation.id ? conversation : c))
       );
+      setActiveId((id) => {
+        if (id === conversation.id) {
+          clearChatCache(CACHE_KEY);
+          setMessages([]);
+          return null;
+        }
+        return id;
+      });
     });
 
     socket.on("conversation_wiped", ({ conversationId }) => {
@@ -199,9 +213,15 @@ export function useStaff(mode = "ema") {
       setAllConversations((prev) =>
         prev.filter((c) => c.id !== conversationId)
       );
-      setActiveId((id) => (id === conversationId ? null : id));
-      setActive(null);
-      setMessages([]);
+      setActiveId((id) => {
+        if (id === conversationId) {
+          clearChatCache(CACHE_KEY);
+          setActive(null);
+          setMessages([]);
+          return null;
+        }
+        return id;
+      });
     });
 
     socket.on("error_message", (payload) => {
@@ -228,6 +248,19 @@ export function useStaff(mode = "ema") {
       role: joinRole,
     });
   }, [user, activeId, joinRole]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (activeId && active) {
+      saveChatCache(CACHE_KEY, {
+        activeId,
+        conversation: active,
+        messages,
+      });
+    } else if (!activeId) {
+      clearChatCache(CACHE_KEY);
+    }
+  }, [user, activeId, active, messages, CACHE_KEY]);
 
   const features = useMemo(
     () =>
@@ -344,6 +377,7 @@ export function useStaff(mode = "ema") {
         messageId,
         answer,
       }),
+    socketRef,
   };
 }
 
