@@ -107,6 +107,7 @@ export default function Home({
   const tabIndexRef = useRef(0);
   const brandRef = useRef(null);
   const windowsRef = useRef(null);
+  const ignoreOutsideRef = useRef(false);
 
   useEffect(() => {
     tabIndexRef.current = tabIndex;
@@ -125,14 +126,24 @@ export default function Home({
 
   useEffect(() => {
     if (!menuOpen) return;
+    let attached = false;
     function onPointerDown(e) {
-      if (!brandRef.current?.contains(e.target)) {
-        setMenuOpen(false);
-        setMenuView("icons");
-      }
+      if (ignoreOutsideRef.current) return;
+      if (brandRef.current?.contains(e.target)) return;
+      setMenuOpen(false);
+      setMenuView("icons");
     }
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
+    /* Na mobitelu isti tap inače odmah zatvori meni — odgodi listener */
+    const timer = window.setTimeout(() => {
+      document.addEventListener("pointerdown", onPointerDown, true);
+      attached = true;
+    }, 280);
+    return () => {
+      window.clearTimeout(timer);
+      if (attached) {
+        document.removeEventListener("pointerdown", onPointerDown, true);
+      }
+    };
   }, [menuOpen]);
 
   const tab = TABS[tabIndex]?.id || "requests";
@@ -172,15 +183,15 @@ export default function Home({
     openPanel(id);
   }
 
-  function openBrandMenu() {
+  function openBrandMenu(e) {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    ignoreOutsideRef.current = true;
     setMenuView("icons");
     setMenuOpen(true);
-    requestAnimationFrame(() => brandRef.current?.focus());
-  }
-
-  function onBrandBlur(e) {
-    if (brandRef.current?.contains(e.relatedTarget)) return;
-    closeBrandMenu();
+    window.setTimeout(() => {
+      ignoreOutsideRef.current = false;
+    }, 400);
   }
 
   function goTab(next) {
@@ -362,8 +373,6 @@ export default function Home({
             className={`home__brand-shell ${menuOpen ? "is-open" : ""} ${
               menuView !== "icons" ? `is-${menuView}` : ""
             }`}
-            tabIndex={-1}
-            onBlur={onBrandBlur}
           >
             <div
               className="home__brand-panel"
@@ -373,7 +382,8 @@ export default function Home({
                 <button
                   type="button"
                   className="home__brand-hit"
-                  onClick={openBrandMenu}
+                  onPointerUp={openBrandMenu}
+                  onClick={(e) => e.preventDefault()}
                   aria-expanded={false}
                 >
                   <span className="home__brand-text">

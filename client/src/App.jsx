@@ -3,12 +3,6 @@ import { useEma } from "./hooks/useEma.js";
 import { useTheme } from "./hooks/useTheme.js";
 import { apiUrl } from "./lib/api.js";
 import Preloader from "./components/Preloader.jsx";
-import Login from "./components/Login.jsx";
-import Home from "./components/Home.jsx";
-import ConversationView from "./components/ConversationView.jsx";
-import Unavailable from "./components/Unavailable.jsx";
-import Preview from "./components/Preview.jsx";
-import { FloatingPathsBackground } from "@/components/ui/floating-paths";
 
 function previewMode() {
   if (typeof window === "undefined") return null;
@@ -17,9 +11,24 @@ function previewMode() {
   return null;
 }
 
+async function warmFonts() {
+  if (typeof document === "undefined" || !document.fonts?.ready) return;
+  try {
+    await Promise.race([
+      document.fonts.ready,
+      new Promise((r) => setTimeout(r, 2500)),
+    ]);
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function App() {
+  const [bootProgress, setBootProgress] = useState(0);
+  const [bootLabel, setBootLabel] = useState("Pripremam…");
   const [ready, setReady] = useState(false);
   const [apiOk, setApiOk] = useState(null);
+  const [Mods, setMods] = useState(null);
   const ema = useEma();
   const theme = useTheme();
   const preview = useMemo(() => previewMode(), []);
@@ -28,8 +37,9 @@ export default function App() {
     try {
       const res = await fetch(apiUrl("/api/health"), { cache: "no-store" });
       const data = await res.json();
-      setApiOk(Boolean(res.ok && data?.ok));
-      return Boolean(res.ok && data?.ok);
+      const ok = Boolean(res.ok && data?.ok);
+      setApiOk(ok);
+      return ok;
     } catch {
       setApiOk(false);
       return false;
@@ -38,32 +48,116 @@ export default function App() {
 
   useEffect(() => {
     if (preview) {
-      setReady(true);
-      setApiOk(true);
-      return;
+      let cancelled = false;
+      (async () => {
+        setBootLabel("Učitavam preview…");
+        setBootProgress(20);
+        const [
+          { default: Preview },
+          { FloatingPathsBackground },
+        ] = await Promise.all([
+          import("./components/Preview.jsx"),
+          import("@/components/ui/floating-paths"),
+        ]);
+        if (cancelled) return;
+        setMods({ Preview, FloatingPathsBackground });
+        setBootProgress(100);
+        setApiOk(true);
+        setTimeout(() => !cancelled && setReady(true), 180);
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
+
     let cancelled = false;
+
     (async () => {
-      for (let i = 0; i < 5; i++) {
-        const ok = await checkApi();
-        if (cancelled || ok) return;
-        await new Promise((r) => setTimeout(r, 600));
+      try {
+        setBootLabel("Učitavam komponente…");
+        setBootProgress(8);
+        const [
+          { default: Login },
+          { default: Home },
+          { default: ConversationView },
+          { default: Unavailable },
+          { default: Preview },
+          { FloatingPathsBackground },
+        ] = await Promise.all([
+          import("./components/Login.jsx"),
+          import("./components/Home.jsx"),
+          import("./components/ConversationView.jsx"),
+          import("./components/Unavailable.jsx"),
+          import("./components/Preview.jsx"),
+          import("@/components/ui/floating-paths"),
+        ]);
+        if (cancelled) return;
+        setMods({
+          Login,
+          Home,
+          ConversationView,
+          Unavailable,
+          Preview,
+          FloatingPathsBackground,
+        });
+        setBootProgress(45);
+
+        setBootLabel("Fontovi…");
+        await warmFonts();
+        if (cancelled) return;
+        setBootProgress(60);
+
+        setBootLabel("Spajam API…");
+        let ok = false;
+        for (let i = 0; i < 6; i++) {
+          ok = await checkApi();
+          if (cancelled) return;
+          setBootProgress(60 + Math.round(((i + 1) / 6) * 30));
+          if (ok) break;
+          await new Promise((r) => setTimeout(r, 500));
+        }
+        if (cancelled) return;
+
+        setBootLabel(ok ? "Spremno" : "API nije dostupan");
+        setBootProgress(100);
+        await new Promise((r) => setTimeout(r, 220));
+        if (!cancelled) setReady(true);
+      } catch {
+        if (!cancelled) {
+          setBootLabel("Greška pri učitavanju");
+          setBootProgress(100);
+          setApiOk(false);
+          setTimeout(() => setReady(true), 300);
+        }
       }
     })();
-    const id = setInterval(checkApi, 15000);
+
+    const id = setInterval(() => {
+      checkApi();
+    }, 20000);
+
     return () => {
       cancelled = true;
       clearInterval(id);
     };
   }, [checkApi, preview]);
 
-  if (!ready || apiOk === null) {
+  if (!ready || !Mods) {
     return (
       <div className="app-root">
-        <Preloader onDone={() => setReady(true)} />
+        <Preloader progress={bootProgress} label={bootLabel} />
       </div>
     );
   }
+
+  const {
+    Login,
+    Home,
+    ConversationView,
+    Unavailable,
+    Preview,
+    FloatingPathsBackground,
+  } = Mods;
 
   if (apiOk === false) {
     return (
