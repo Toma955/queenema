@@ -59,6 +59,23 @@ export function useEma() {
     setMessages([]);
   }
 
+  async function updateProfile({ name, username, password, currentPassword }) {
+    try {
+      const res = await fetch(apiUrl("/api/ema/profile"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, username, password, currentPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.error || "Greška." };
+      localStorage.setItem(AUTH_KEY, JSON.stringify(data.user));
+      setUser(data.user);
+      return { ok: true, user: data.user };
+    } catch {
+      return { ok: false, error: "Server nije dostupan." };
+    }
+  }
+
   useEffect(() => {
     if (!user) return;
     const socket = io(socketUrl(), {
@@ -102,6 +119,12 @@ export function useEma() {
         if (prev.some((m) => m.id === message.id)) return prev;
         return [...prev, message];
       });
+    });
+
+    socket.on("message_updated", (message) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === message.id ? message : m))
+      );
     });
 
     socket.on("patience", ({ conversation }) => {
@@ -168,17 +191,20 @@ export function useEma() {
     joining,
     login,
     logout,
+    updateProfile,
     setAcceptNew: (value) => socketRef.current?.emit("set_accept_new", { value }),
     acceptRequest: (requestId) =>
       socketRef.current?.emit("respond_request", { requestId, accept: true }),
     rejectRequest: (requestId) =>
       socketRef.current?.emit("respond_request", { requestId, accept: false }),
-    setPatience: (patience) =>
-      activeId &&
+    setPatience: (patience, conversationId) => {
+      const id = conversationId ?? activeId;
+      if (!id) return;
       socketRef.current?.emit("set_patience", {
-        conversationId: activeId,
+        conversationId: id,
         patience,
-      }),
+      });
+    },
     endConversation: () =>
       activeId &&
       socketRef.current?.emit("end_conversation", { conversationId: activeId }),
@@ -191,6 +217,25 @@ export function useEma() {
         conversationId: activeId,
         audio,
         mime,
+      }),
+    sendReaction: (kind) =>
+      activeId &&
+      socketRef.current?.emit("send_reaction", {
+        conversationId: activeId,
+        kind,
+      }),
+    reactMessage: (messageId, kind) =>
+      activeId &&
+      socketRef.current?.emit("react_message", {
+        conversationId: activeId,
+        messageId,
+        kind,
+      }),
+    sendCall: (kind) =>
+      activeId &&
+      socketRef.current?.emit("send_call", {
+        conversationId: activeId,
+        kind,
       }),
   };
 }

@@ -11,6 +11,14 @@ function detectDevice() {
   return { device: mobile ? "mobile" : "desktop", userAgent: ua };
 }
 
+function readInviteToken() {
+  try {
+    return new URLSearchParams(window.location.search).get("i") || "";
+  } catch {
+    return "";
+  }
+}
+
 export default function App() {
   const [cookieConsent, setCookieConsent] = useState(() => {
     try {
@@ -19,6 +27,9 @@ export default function App() {
       return null;
     }
   });
+  const [inviteToken] = useState(() => readInviteToken());
+  const [inviteOk, setInviteOk] = useState(null);
+  const [inviteError, setInviteError] = useState("");
   const [availability, setAvailability] = useState(null);
   const [apiOk, setApiOk] = useState(null);
   const [phase, setPhase] = useState("form");
@@ -35,6 +46,7 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [recording, setRecording] = useState(false);
+  const [reactId, setReactId] = useState(null);
   const socketRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -59,6 +71,22 @@ export default function App() {
         setApiOk(true);
         const avail = await fetch(apiUrl("/api/availability")).then((r) => r.json());
         if (alive) setAvailability(avail);
+        if (inviteToken) {
+          const inv = await fetch(apiUrl(`/api/invite/${inviteToken}`)).then((r) =>
+            r.json()
+          );
+          if (!alive) return;
+          if (inv.ok) {
+            setInviteOk(true);
+            setInviteError("");
+          } else {
+            setInviteOk(false);
+            setInviteError(inv.error || "Link nije valjan.");
+          }
+        } else {
+          setInviteOk(false);
+          setInviteError("Trebaš Emine link za zahtjev.");
+        }
       } catch {
         if (alive) {
           setApiOk(false);
@@ -72,7 +100,7 @@ export default function App() {
       alive = false;
       clearInterval(id);
     };
-  }, []);
+  }, [inviteToken]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -149,6 +177,12 @@ export default function App() {
           if (prev.some((m) => m.id === message.id)) return prev;
           return [...prev, message];
         });
+      });
+
+      socket.on("message_updated", (message) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === message.id ? message : m))
+        );
       });
 
       socket.on("patience", ({ conversation: c }) => {
@@ -246,6 +280,7 @@ export default function App() {
           device,
           userAgent,
           guestToken: existing || undefined,
+          inviteToken: inviteToken || undefined,
         }),
       });
       const data = await res.json();
@@ -284,6 +319,29 @@ export default function App() {
       text,
     });
     setDraft("");
+    setError("");
+  }
+
+  function reactToMessage(messageId, kind) {
+    if (!socketRef.current || !conversation?.id) return;
+    if (kind === "smile" && !features.smile) {
+      setError("Smajlić nije otključan.");
+      return;
+    }
+    if (kind === "like" && !features.like) {
+      setError("Lajk nije otključan.");
+      return;
+    }
+    if (kind === "heart" && !features.heart) {
+      setError("Srce nije otključano.");
+      return;
+    }
+    socketRef.current.emit("react_message", {
+      conversationId: conversation.id,
+      messageId,
+      kind,
+    });
+    setReactId(null);
     setError("");
   }
 
@@ -448,18 +506,110 @@ export default function App() {
         </header>
 
         <div className="guest-messages">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`bubble ${m.from === "guest" ? "mine" : "theirs"}`}
-            >
-              {m.type === "voice" && (m.media_url || m.mediaUrl) ? (
-                <audio controls src={mediaUrl(m.media_url || m.mediaUrl)} />
-              ) : (
-                <p>{m.text}</p>
-              )}
-            </div>
-          ))}
+          {messages.map((m) => {
+            const reactable = ["text", "voice", "call", "video"].includes(m.type);
+            const counts = {};
+            for (const r of m.reactions || []) {
+              counts[r.kind] = (counts[r.kind] || 0) + 1;
+            }
+            const mineKinds = new Set(
+              (m.reactions || [])
+                .filter((r) => r.from === "guest")
+                .map((r) => r.kind)
+            );
+            const canSmile = features.smile;
+            const canLike = features.like;
+            const canHeart = features.heart && m.from === "ema";
+            const anyReact = canSmile || canLike || canHeart;
+
+            return (
+              <div
+                key={m.id}
+                className={`bubble ${m.from === "guest" ? "mine" : "theirs"} ${m.type === "reaction" ? "is-reaction" : ""} ${reactable ? "is-reactable" : ""}`}
+                onClick={() => {
+                  if (!reactable || !anyReact) return;
+                  setReactId((id) => (id === m.id ? null : m.id));
+                }}
+              >
+                {m.type === "voice" && (m.media_url || m.mediaUrl) ? (
+                  <audio controls src={mediaUrl(m.media_url || m.mediaUrl)} />
+                ) : m.type === "call" || m.type === "video" ? (
+                  <p className="call-msg">
+                    {m.text}
+                    {m.type === "call" && features.call
+                      ? " · možeš primiti"
+                      : null}
+                    {m.type === "video" && features.video
+                      ? " · možeš primiti"
+                      : null}
+                    {(m.type === "call" && !features.call) ||
+                    (m.type === "video" && !features.video)
+                      ? " · zaključano za tebe"
+                      : null}
+                  </p>
+                ) : (
+                  <p>{m.text}</p>
+                )}
+
+                {(Object.keys(counts).length > 0 || reactId === m.id) && (
+                  <div className="bubble-reacts">
+                    {Object.keys(counts).length > 0 ? (
+                      <div className="bubble-pills">
+                        {["smile", "like", "heart"]
+                          .filter((k) => counts[k])
+                          .map((k) => (
+                            <span
+                              key={k}
+                              className={`bubble-pill ${mineKinds.has(k) ? "is-mine" : ""}`}
+                            >
+                              {k === "smile" ? "😊" : k === "like" ? "👍" : "❤️"}
+                              {counts[k] > 1 ? ` ${counts[k]}` : ""}
+                            </span>
+                          ))}
+                      </div>
+                    ) : null}
+                    {reactId === m.id ? (
+                      <div className="bubble-picker">
+                        {canSmile ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              reactToMessage(m.id, "smile");
+                            }}
+                          >
+                            😊
+                          </button>
+                        ) : null}
+                        {canLike ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              reactToMessage(m.id, "like");
+                            }}
+                          >
+                            👍
+                          </button>
+                        ) : null}
+                        {canHeart ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              reactToMessage(m.id, "heart");
+                            }}
+                          >
+                            ❤️
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           <div ref={bottomRef} />
         </div>
 
@@ -493,15 +643,15 @@ export default function App() {
     );
   }
 
-  const closed = availability && !availability.acceptNewConversations;
+  const closed = !inviteOk;
 
   return (
-    <div className="guest-shell">
-      <form className="request-card" onSubmit={submitRequest}>
+    <div className="guest-shell guest-shell--modal">
+      <form className="request-card request-card--modal" onSubmit={submitRequest}>
         <h1>Zahtjev za razgovor</h1>
         <p className="lead">
           {closed
-            ? "Ema trenutno ne prima nove razgovore."
+            ? inviteError || "Link nije dostupan."
             : "Ime, slika i kratki opis — Ema odlučuje."}
         </p>
 
