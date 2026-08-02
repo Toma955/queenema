@@ -37,16 +37,14 @@ function BrandMark() {
   );
 }
 
-function guestBaseUrl() {
-  const env = (import.meta.env.VITE_GUEST_URL || "").replace(/\/$/, "");
-  if (env) return env;
+function guestShareUrl() {
   if (typeof window !== "undefined") {
     const { protocol, hostname } = window.location;
     if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return `${protocol}//${hostname}:5174`;
+      return `${protocol}//${hostname}:${window.location.port || "5173"}/guest`;
     }
   }
-  return "https://guest.queenema.art";
+  return "https://queenema.art/guest";
 }
 
 function CtaButton({ children, onClick, disabled, className = "" }) {
@@ -306,17 +304,25 @@ export default function Home({
   async function createLink() {
     setLinkBusy(true);
     setCopied(false);
+    setSaveMsg("");
+    const url = guestShareUrl();
     try {
       const res = await fetch(apiUrl("/api/invite"), { method: "POST" });
       const data = await res.json();
-      if (!res.ok || !data.invite?.token) throw new Error(data.error || "Greška");
-      const url = `${guestBaseUrl()}/?i=${data.invite.token}`;
-      setInviteUrl(url);
+      if (!res.ok || !data.ok) throw new Error(data.error || "Greška");
+      const share = data.url || url;
+      setInviteUrl(share);
       setPanel("link");
       setMenuOpen(false);
+      try {
+        await navigator.clipboard.writeText(share);
+        setCopied(true);
+      } catch {
+        setCopied(false);
+      }
     } catch (err) {
       setInviteUrl("");
-      setSaveMsg(err.message || "Link nije kreiran.");
+      setSaveMsg(err.message || "Link nije otvoren.");
       setPanel("link");
     } finally {
       setLinkBusy(false);
@@ -324,9 +330,10 @@ export default function Home({
   }
 
   async function copyLink() {
-    if (!inviteUrl) return;
+    const url = inviteUrl || guestShareUrl();
     try {
-      await navigator.clipboard.writeText(inviteUrl);
+      await navigator.clipboard.writeText(url);
+      setInviteUrl(url);
       setCopied(true);
     } catch {
       setCopied(false);
@@ -662,17 +669,28 @@ export default function Home({
       {panel === "link" ? (
         <div className="sheet">
           <div className="sheet__head">
-            <h2>Novi link</h2>
+            <h2>Link za gosta</h2>
             <button type="button" className="ghost-btn" onClick={() => setPanel(null)}>
               Zatvori
             </button>
           </div>
           {inviteUrl ? (
             <>
-              <p className="muted">Pošalji ovaj link. Otvara prozor za zahtjev.</p>
-              <code className="invite-url">{inviteUrl}</code>
-              <button type="button" className="login__btn" onClick={copyLink}>
-                {copied ? "Kopirano" : "Kopiraj link"}
+              <p className="muted">
+                {copied
+                  ? "Već u međuspremniku — samo pošalji."
+                  : "Pošalji gostu. Upiše ime, opis i (po želji) sliku."}
+              </p>
+              <button
+                type="button"
+                className="invite-url invite-url--simple"
+                onClick={copyLink}
+                title="Kopiraj"
+              >
+                {inviteUrl}
+              </button>
+              <button type="button" className="home__cta-btn" onClick={copyLink}>
+                {copied ? "U međuspremniku ✓" : "Kopiraj ponovo"}
               </button>
             </>
           ) : (
@@ -785,7 +803,7 @@ export default function Home({
         <footer className="home__footer">
           {tab === "requests" ? (
             <CtaButton onClick={createLink} disabled={linkBusy}>
-              {linkBusy ? "Stvaram…" : "Novi link"}
+              {linkBusy ? "Stvaram…" : "Podijeli link"}
             </CtaButton>
           ) : null}
 

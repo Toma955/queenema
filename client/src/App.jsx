@@ -11,6 +11,12 @@ function previewMode() {
   return null;
 }
 
+function isGuestPath() {
+  if (typeof window === "undefined") return false;
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  return path === "/guest" || path.startsWith("/guest/");
+}
+
 async function warmFonts() {
   if (typeof document === "undefined" || !document.fonts?.ready) return;
   try {
@@ -24,6 +30,7 @@ async function warmFonts() {
 }
 
 export default function App() {
+  const guestMode = useMemo(() => isGuestPath(), []);
   const [bootProgress, setBootProgress] = useState(0);
   const [bootLabel, setBootLabel] = useState("Pripremam…");
   const [ready, setReady] = useState(false);
@@ -47,33 +54,45 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (preview) {
-      let cancelled = false;
-      (async () => {
-        setBootLabel("Učitavam preview…");
-        setBootProgress(20);
-        const [
-          { default: Preview },
-          { FloatingPathsBackground },
-        ] = await Promise.all([
-          import("./components/Preview.jsx"),
-          import("@/components/ui/floating-paths"),
-        ]);
-        if (cancelled) return;
-        setMods({ Preview, FloatingPathsBackground });
-        setBootProgress(100);
-        setApiOk(true);
-        setTimeout(() => !cancelled && setReady(true), 180);
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }
-
     let cancelled = false;
 
     (async () => {
       try {
+        if (guestMode) {
+          setBootLabel("Učitavam gost…");
+          setBootProgress(20);
+          const [{ default: GuestApp }] = await Promise.all([
+            import("./guest/GuestApp.jsx"),
+            warmFonts(),
+          ]);
+          if (cancelled) return;
+          setMods({ GuestApp });
+          setBootProgress(70);
+          await checkApi();
+          if (cancelled) return;
+          setBootProgress(100);
+          setTimeout(() => !cancelled && setReady(true), 160);
+          return;
+        }
+
+        if (preview) {
+          setBootLabel("Učitavam preview…");
+          setBootProgress(20);
+          const [
+            { default: Preview },
+            { FloatingPathsBackground },
+          ] = await Promise.all([
+            import("./components/Preview.jsx"),
+            import("@/components/ui/floating-paths"),
+          ]);
+          if (cancelled) return;
+          setMods({ Preview, FloatingPathsBackground });
+          setBootProgress(100);
+          setApiOk(true);
+          setTimeout(() => !cancelled && setReady(true), 180);
+          return;
+        }
+
         setBootLabel("Učitavam komponente…");
         setBootProgress(8);
         const [
@@ -132,20 +151,33 @@ export default function App() {
       }
     })();
 
-    const id = setInterval(() => {
-      checkApi();
-    }, 20000);
+    const id = guestMode
+      ? null
+      : setInterval(() => {
+          checkApi();
+        }, 20000);
 
     return () => {
       cancelled = true;
-      clearInterval(id);
+      if (id) clearInterval(id);
     };
-  }, [checkApi, preview]);
+  }, [checkApi, preview, guestMode]);
 
   if (!ready || !Mods) {
     return (
       <div className="app-root">
         <Preloader progress={bootProgress} label={bootLabel} />
+      </div>
+    );
+  }
+
+  if (guestMode && Mods.GuestApp) {
+    const { GuestApp } = Mods;
+    return (
+      <div className="app-root">
+        <div className="app-stage">
+          <GuestApp />
+        </div>
       </div>
     );
   }
