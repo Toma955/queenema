@@ -2170,6 +2170,20 @@ button {
   color: var(--mist);
 }
 
+.guest-top-menu__leave {
+  margin-top: 0.15rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px 12px 10px 10px !important;
+  color: #ffb0b0 !important;
+  background: rgba(255, 90, 90, 0.1) !important;
+}
+
+.guest-top-menu__leave:active {
+  background: rgba(255, 90, 90, 0.2) !important;
+}
+  color: var(--mist);
+}
+
 .guest-system,
 .msg--system {
   align-self: center;

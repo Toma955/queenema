@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { Coffee, Heart, Mic, Phone, Video } from "lucide-react";
+import { Coffee, Heart, LogOut, Mic, Phone, Video } from "lucide-react";
 import CallInvite from "../components/CallInvite.jsx";
 import CoffeeAsk from "../components/CoffeeAsk.jsx";
 import VoicePlayer from "../components/VoicePlayer.jsx";
@@ -415,6 +415,21 @@ export default function GuestApp() {
     });
   }
 
+  function endChat() {
+    if (!socketRef.current || !conversation?.id) return;
+    if (!window.confirm("Želiš li prekinuti razgovor?")) return;
+    socketRef.current.emit("end_conversation", {
+      conversationId: conversation.id,
+    });
+    setIslandOpen(false);
+    setPhase("gone");
+    setConversation(null);
+    setMessages([]);
+    clearChatCache(GUEST_CACHE);
+    localStorage.removeItem("queenema_guest");
+    setGuestToken("");
+  }
+
   if (apiOk === false) {
     return (
       <div className="guest-page">
@@ -479,6 +494,20 @@ export default function GuestApp() {
               ? "Ema nije prihvatila zahtjev."
               : "Razgovor je završen."}
           </p>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => {
+              clearChatCache(GUEST_CACHE);
+              localStorage.removeItem("queenema_guest");
+              setGuestToken("");
+              setPhase("form");
+              setMessages([]);
+              setConversation(null);
+            }}
+          >
+            Natrag
+          </button>
         </div>
       </div>
     );
@@ -542,6 +571,14 @@ export default function GuestApp() {
               ) : (
                 <p className="guest-top-menu__empty">Nema otključanih akcija</p>
               )}
+              <button
+                type="button"
+                className="guest-top-menu__leave"
+                onClick={endChat}
+              >
+                <LogOut size={16} />
+                Prekini razgovor
+              </button>
             </div>
           ) : null}
         </div>
