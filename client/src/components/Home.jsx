@@ -42,13 +42,28 @@ function guestShareUrl() {
   return publicShareUrl();
 }
 
-function CtaButton({ children, onClick, disabled, className = "" }) {
+function CtaButton({
+  children,
+  onClick,
+  disabled,
+  className = "",
+  onPointerDown,
+  onPointerUp,
+  onPointerLeave,
+  onPointerCancel,
+  onContextMenu,
+}) {
   return (
     <button
       type="button"
       className={`home__cta-btn ${className}`}
       onClick={onClick}
       disabled={disabled}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerLeave}
+      onPointerCancel={onPointerCancel}
+      onContextMenu={onContextMenu}
     >
       {children}
     </button>
@@ -79,8 +94,9 @@ export default function Home({
   const [dragging, setDragging] = useState(false);
   const [panel, setPanel] = useState(null);
   const [inviteUrl, setInviteUrl] = useState("");
-  const [linkBusy, setLinkBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyFlash, setCopyFlash] = useState(false);
+  const holdRef = useRef({ timer: null, suppressClick: false });
   const [msgMode, setMsgMode] = useState("reply");
   const [patienceId, setPatienceId] = useState(null);
   const [name, setName] = useState(user?.name || "Ema");
@@ -296,43 +312,46 @@ export default function Home({
     }
   }
 
-  async function createLink() {
-    setLinkBusy(true);
-    setCopied(false);
-    setSaveMsg("");
+  async function copyShareLink() {
     const url = guestShareUrl();
-    try {
-      const res = await fetch(apiUrl("/api/invite"), { method: "POST" });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Greška");
-      const share = data.url || url;
-      setInviteUrl(share);
-      setPanel("link");
-      setMenuOpen(false);
-      try {
-        await navigator.clipboard.writeText(share);
-        setCopied(true);
-      } catch {
-        setCopied(false);
-      }
-    } catch (err) {
-      setInviteUrl("");
-      setSaveMsg(err.message || "Link nije otvoren.");
-      setPanel("link");
-    } finally {
-      setLinkBusy(false);
-    }
-  }
-
-  async function copyLink() {
-    const url = inviteUrl || guestShareUrl();
     try {
       await navigator.clipboard.writeText(url);
       setInviteUrl(url);
       setCopied(true);
+      setCopyFlash(true);
+      window.setTimeout(() => setCopyFlash(false), 1600);
     } catch {
       setCopied(false);
+      setCopyFlash(false);
     }
+  }
+
+  function clearHoldTimer() {
+    if (holdRef.current.timer) {
+      window.clearTimeout(holdRef.current.timer);
+      holdRef.current.timer = null;
+    }
+  }
+
+  function onRequestsGatePointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    holdRef.current.suppressClick = false;
+    clearHoldTimer();
+    if (!shareOn) return;
+    holdRef.current.timer = window.setTimeout(() => {
+      holdRef.current.suppressClick = true;
+      holdRef.current.timer = null;
+      copyShareLink();
+    }, 520);
+  }
+
+  function onRequestsGateClick() {
+    clearHoldTimer();
+    if (holdRef.current.suppressClick) {
+      holdRef.current.suppressClick = false;
+      return;
+    }
+    onSetAcceptNew?.(!shareOn);
   }
 
   async function saveProfile(e) {
@@ -664,33 +683,17 @@ export default function Home({
       {panel === "link" ? (
         <div className="sheet">
           <div className="sheet__head">
-            <h2>Link za gosta</h2>
+            <h2>Poveznica</h2>
             <button type="button" className="ghost-btn" onClick={() => setPanel(null)}>
               Zatvori
             </button>
           </div>
-          {inviteUrl ? (
-            <>
-              <p className="muted">
-                {copied
-                  ? "Već u međuspremniku — pošalji korisniku."
-                  : "Korisnik na queenema.art šalje zahtjev; ti odlučuješ."}
-              </p>
-              <button
-                type="button"
-                className="invite-url invite-url--simple"
-                onClick={copyLink}
-                title="Kopiraj"
-              >
-                {inviteUrl}
-              </button>
-              <button type="button" className="home__cta-btn" onClick={copyLink}>
-                {copied ? "U međuspremniku ✓" : "Kopiraj ponovo"}
-              </button>
-            </>
-          ) : (
-            <p className="err">{saveMsg || "Nema linka."}</p>
-          )}
+          <p className="muted">
+            {copied
+              ? "queenema.art je u međuspremniku."
+              : "Pridržite Omogućeno na dnu za kopiranje."}
+          </p>
+          <p className="invite-url invite-url--simple">{inviteUrl || guestShareUrl()}</p>
         </div>
       ) : null}
 
@@ -783,8 +786,9 @@ export default function Home({
               kontrolira.
             </p>
             <p>
-              Stvori <em>Novi link</em> i podijeli ga. Gost otvara prozor i šalje
-              zahtjev (ime, slika, opis).
+              Uključi <em>Omogući zahtjeve</em>. Korisnik na queenema.art šalje
+              ime, prezime, opis i (po želji) sliku. Pridržite tipku za kopiranje
+              poveznice.
             </p>
             <p>
               U chatu <em>strpljenje</em> određuje limity, glas, poziv/video ili
@@ -797,9 +801,28 @@ export default function Home({
       {!panel ? (
         <footer className="home__footer">
           {tab === "requests" ? (
-            <CtaButton onClick={createLink} disabled={linkBusy}>
-              {linkBusy ? "Stvaram…" : "Podijeli link"}
-            </CtaButton>
+            <>
+              <CtaButton
+                className={shareOn ? "is-on" : ""}
+                onPointerDown={onRequestsGatePointerDown}
+                onPointerUp={clearHoldTimer}
+                onPointerLeave={clearHoldTimer}
+                onPointerCancel={clearHoldTimer}
+                onClick={onRequestsGateClick}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                {copyFlash
+                  ? "Kopirano ✓"
+                  : shareOn
+                    ? "Omogućeno"
+                    : "Omogući zahtjeve"}
+              </CtaButton>
+              {shareOn ? (
+                <p className="home__hold-hint">
+                  Pridržite Omogućeno za kopiranje poveznice
+                </p>
+              ) : null}
+            </>
           ) : null}
 
           {tab === "messages" ? (
@@ -813,15 +836,6 @@ export default function Home({
               }
             >
               {msgMode === "patience" ? "Promijeni strpljenje" : "Odgovori"}
-            </CtaButton>
-          ) : null}
-
-          {tab === "analytics" ? (
-            <CtaButton
-              className={shareOn ? "is-on" : ""}
-              onClick={() => onSetAcceptNew?.(!shareOn)}
-            >
-              {shareOn ? "Podijeli uključeno" : "Podijeli isključeno"}
             </CtaButton>
           ) : null}
         </footer>

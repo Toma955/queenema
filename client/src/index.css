@@ -1286,6 +1286,16 @@ button {
   z-index: 5;
 }
 
+.home__hold-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--mist);
+  opacity: 0.85;
+  user-select: none;
+}
+
 .home__cta-btn {
   width: 100%;
   min-height: 3.35rem;
@@ -1300,6 +1310,9 @@ button {
   letter-spacing: 0.02em;
   cursor: pointer;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .home__cta-btn.is-on {
@@ -1553,6 +1566,59 @@ button {
   gap: 0.35rem;
   font-size: 0.82rem;
   color: var(--mist);
+}
+
+.guest-form-top {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.guest-name-stack {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.guest-ava-btn {
+  width: 5.5rem;
+  height: 5.5rem;
+  align-self: center;
+  border-radius: 14px;
+  border: 1px dashed rgba(214, 179, 106, 0.45);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--gold);
+  font-size: 1.75rem;
+  font-weight: 300;
+  line-height: 1;
+  cursor: pointer;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.guest-ava-btn.has-img {
+  border-style: solid;
+}
+
+.guest-ava-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .guest-card input,

@@ -27,8 +27,10 @@ export default function GuestApp() {
   const [occupied, setOccupied] = useState(false);
   const [gateError, setGateError] = useState("");
   const [phase, setPhase] = useState("form");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [bio, setBio] = useState("");
+  const fileRef = useRef(null);
   const [avatarPreview, setAvatarPreview] = useState("");
   const [avatarData, setAvatarData] = useState(null);
   const [error, setError] = useState("");
@@ -170,8 +172,12 @@ export default function GuestApp() {
       setError("Prihvati cookies da nastaviš.");
       return;
     }
-    if (!name.trim()) {
-      setError("Upiši ime i prezime.");
+    if (!firstName.trim()) {
+      setError("Upiši ime.");
+      return;
+    }
+    if (!lastName.trim()) {
+      setError("Upiši prezime.");
       return;
     }
     if (!bio.trim()) {
@@ -187,7 +193,8 @@ export default function GuestApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
           bio: bio.trim(),
           avatar: avatarData?.data || undefined,
           avatarMime: avatarData?.mime || undefined,
@@ -350,54 +357,78 @@ export default function GuestApp() {
         <p className="lead">
           {closed
             ? gateError || "Prijava trenutno nije otvorena."
-            : "Prvi put? Pošalji zahtjev. Ako Ema prihvati, dobiješ račun."}
+            : "Pošalji zahtjev. Ako Ema prihvati, dobiješ račun."}
         </p>
 
-        <label>
-          Ime i prezime
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={48}
-            disabled={closed || busy}
-            required
-          />
-        </label>
+        {closed ? null : (
+          <>
+            <div className="guest-form-top">
+              <div className="guest-name-stack">
+                <label>
+                  Ime
+                  <input
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    maxLength={32}
+                    disabled={busy}
+                    required
+                    autoComplete="given-name"
+                  />
+                </label>
+                <label>
+                  Prezime
+                  <input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    maxLength={32}
+                    disabled={busy}
+                    required
+                    autoComplete="family-name"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className={`guest-ava-btn${avatarPreview ? " has-img" : ""}`}
+                onClick={() => fileRef.current?.click()}
+                disabled={busy}
+                aria-label="Dodaj sliku"
+              >
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="" />
+                ) : (
+                  <span aria-hidden>+</span>
+                )}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={onAvatarChange}
+                disabled={busy}
+              />
+            </div>
 
-        <label>
-          Opis
-          <textarea
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            maxLength={500}
-            rows={3}
-            disabled={closed || busy}
-            required
-          />
-        </label>
+            <label>
+              Opis
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                maxLength={500}
+                rows={3}
+                disabled={busy}
+                required
+              />
+            </label>
 
-        <label>
-          Slika (opcionalno)
-          <input
-            type="file"
-            accept="image/*"
-            onChange={onAvatarChange}
-            disabled={closed || busy}
-          />
-        </label>
-        {avatarPreview ? (
-          <img src={avatarPreview} alt="" className="guest-ava" />
-        ) : null}
+            {error ? <p className="err">{error}</p> : null}
 
-        {error ? <p className="err">{error}</p> : null}
-
-        <button
-          type="submit"
-          className="guest-primary"
-          disabled={closed || busy}
-        >
-          {busy ? "Šaljem…" : "Pošalji zahtjev"}
-        </button>
+            <button type="submit" className="guest-primary" disabled={busy}>
+              {busy ? "Šaljem…" : "Pošalji zahtjev"}
+            </button>
+          </>
+        )}
       </form>
     </div>
   );
