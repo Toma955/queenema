@@ -311,6 +311,13 @@ export function useStaff(mode = "ema") {
         mime,
         durationSec,
       }),
+    sendPhoto: (image, mime) =>
+      activeId &&
+      socketRef.current?.emit("send_photo", {
+        conversationId: activeId,
+        image,
+        mime,
+      }),
     sendReaction: (kind) =>
       activeId &&
       socketRef.current?.emit("send_reaction", {
@@ -329,6 +336,13 @@ export function useStaff(mode = "ema") {
       socketRef.current?.emit("send_call", {
         conversationId: activeId,
         kind,
+      }),
+    respondInvite: (messageId, answer) =>
+      activeId &&
+      socketRef.current?.emit("respond_invite", {
+        conversationId: activeId,
+        messageId,
+        answer,
       }),
   };
 }

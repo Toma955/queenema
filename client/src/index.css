@@ -698,6 +698,202 @@ button {
   background: rgba(120, 160, 255, 0.12);
 }
 
+.call-invite.status-accepted .call-invite__badge {
+  border-color: rgba(120, 200, 140, 0.45);
+  color: #9eebb2;
+  background: rgba(80, 180, 110, 0.14);
+}
+
+.call-invite.status-declined .call-invite__badge {
+  border-color: rgba(255, 120, 120, 0.4);
+  color: #ffb0b0;
+  background: rgba(255, 90, 90, 0.12);
+}
+
+.call-invite:has(.call-invite__actions) {
+  grid-template-columns: auto 1fr;
+}
+
+.call-invite__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+
+.call-invite__btn {
+  flex: 1;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.call-invite__btn--no {
+  background: rgba(255, 90, 90, 0.16);
+  color: #ffb0b0;
+  border: 1px solid rgba(255, 120, 120, 0.35);
+}
+
+.call-invite__btn--yes {
+  background: rgba(120, 200, 140, 0.2);
+  color: #b8f0c6;
+  border: 1px solid rgba(120, 200, 140, 0.4);
+}
+
+/* —— Kava / dejt pitanje —— */
+.coffee-ask {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.7rem;
+  align-items: center;
+  min-width: min(240px, 72vw);
+  padding: 0.7rem 0.85rem;
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(210, 160, 110, 0.24), transparent 55%),
+    rgba(18, 20, 28, 0.72);
+  border: 1px solid rgba(210, 160, 110, 0.4);
+}
+
+.coffee-ask__icon {
+  width: 2.35rem;
+  height: 2.35rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #e8c09a, #b87a45);
+  color: #1a1208;
+}
+
+.coffee-ask__title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--foam);
+}
+
+.coffee-ask__sub {
+  margin: 0.12rem 0 0;
+  font-size: 0.72rem;
+  color: rgba(245, 240, 230, 0.62);
+}
+
+.coffee-ask__badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(210, 160, 110, 0.45);
+  color: #e8c09a;
+  background: rgba(210, 160, 110, 0.12);
+}
+
+.coffee-ask.status-yes .coffee-ask__badge {
+  border-color: rgba(120, 200, 140, 0.45);
+  color: #9eebb2;
+}
+
+.coffee-ask.status-no .coffee-ask__badge {
+  border-color: rgba(255, 120, 120, 0.4);
+  color: #ffb0b0;
+}
+
+.coffee-ask:has(.coffee-ask__actions) {
+  grid-template-columns: auto 1fr;
+}
+
+.coffee-ask__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.coffee-ask__btn {
+  flex: 1;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.coffee-ask__btn--no {
+  background: rgba(255, 90, 90, 0.16);
+  color: #ffb0b0;
+  border: 1px solid rgba(255, 120, 120, 0.35);
+}
+
+.coffee-ask__btn--yes {
+  background: rgba(120, 200, 140, 0.2);
+  color: #b8f0c6;
+  border: 1px solid rgba(120, 200, 140, 0.4);
+}
+
+/* —— Photo picker —— */
+.photo-pick {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.photo-pick__menu {
+  position: absolute;
+  bottom: calc(100% + 0.45rem);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 8.5rem;
+  padding: 0.35rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(18, 20, 28, 0.96);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+
+.photo-pick__menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  background: transparent;
+  color: var(--foam);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.photo-pick__menu button:active,
+.photo-pick__menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.photo-pick__close {
+  color: rgba(245, 240, 230, 0.55) !important;
+}
+
+.island--photo:not(.island--nomic) {
+  grid-template-columns: auto auto 1fr auto;
+}
+
+.island--photo.island--nomic {
+  grid-template-columns: auto 1fr auto;
+}
+
+.guest-bubble:has(.coffee-ask),
+.guest-bubble:has(.call-invite) {
+  padding: 0.45rem 0.55rem;
+  background: transparent;
+  border: 0;
+}
+
 /* —— Seekable voice player —— */
 .voice-player {
   display: grid;

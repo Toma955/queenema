@@ -13,8 +13,10 @@ import {
 } from "lucide-react";
 import PatienceBar from "./PatienceBar.jsx";
 import CallInvite from "./CallInvite.jsx";
+import CoffeeAsk from "./CoffeeAsk.jsx";
 import VoicePlayer from "./VoicePlayer.jsx";
 import VoiceRecordBar from "./VoiceRecordBar.jsx";
+import PhotoPickerButton from "./PhotoPickerButton.jsx";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
 import { apiUrl } from "../lib/api.js";
 
@@ -162,7 +164,7 @@ const REACT_OPTS = [
   { kind: "heart", emoji: "❤️", label: "Srce" },
 ];
 
-const REACTABLE = new Set(["text", "voice", "call", "video"]);
+const REACTABLE = new Set(["text", "voice", "photo", "call", "video"]);
 
 function Chip({ chip, patience }) {
   const on = lit(chip.at, patience, chip.id);
@@ -244,9 +246,11 @@ export default function ConversationView({
   onPatience,
   onSend,
   onSendVoice,
+  onSendPhoto,
   onReactMessage,
   onSendCall,
   onSendReaction,
+  onRespondInvite,
   onEnd,
   onWipe,
   isAdmin = false,
@@ -450,12 +454,29 @@ export default function ConversationView({
                   src={mediaSrc(m.media_url || m.mediaUrl)}
                   durationHint={Number(m.duration_sec || m.durationSec) || 0}
                 />
+              ) : m.type === "photo" ? (
+                <img
+                  className="msg__img"
+                  src={mediaSrc(m.media_url || m.mediaUrl)}
+                  alt="Slika"
+                  loading="lazy"
+                />
               ) : m.type === "reaction" ? (
                 <p className="msg__react">{m.text}</p>
               ) : m.type === "call" || m.type === "video" ? (
                 <CallInvite
                   kind={m.type === "video" ? "video" : "call"}
                   fromLabel={m.from === "ema" ? "Ema" : guestName}
+                  status={m.status || "pending"}
+                  canRespond={!mine && !ended && (m.status || "pending") === "pending"}
+                  onRespond={(answer) => onRespondInvite?.(m.id, answer)}
+                />
+              ) : m.type === "coffee" ? (
+                <CoffeeAsk
+                  fromLabel={m.from === "ema" ? "Ema" : guestName}
+                  status={m.status || "pending"}
+                  canRespond={!mine && !ended && (m.status || "pending") === "pending"}
+                  onRespond={(answer) => onRespondInvite?.(m.id, answer)}
                 />
               ) : (
                 <p className="msg__text">{m.text}</p>
@@ -486,7 +507,10 @@ export default function ConversationView({
             onSend={sendRec}
           />
         ) : (
-          <form className="island island--bar" onSubmit={submit}>
+          <form
+            className={`island island--bar${features.photo ? " island--photo" : ""}`}
+            onSubmit={submit}
+          >
             <button
               type="button"
               className="island__mic"
@@ -495,6 +519,9 @@ export default function ConversationView({
             >
               <Mic size={18} />
             </button>
+            {features.photo ? (
+              <PhotoPickerButton onPick={(image, mime) => onSendPhoto?.(image, mime)} />
+            ) : null}
             <input
               className="island__input"
               value={text}

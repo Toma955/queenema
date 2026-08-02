@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { Coffee, Heart, Mic, Phone, Video } from "lucide-react";
 import CallInvite from "../components/CallInvite.jsx";
+import CoffeeAsk from "../components/CoffeeAsk.jsx";
 import VoicePlayer from "../components/VoicePlayer.jsx";
 import VoiceRecordBar from "../components/VoiceRecordBar.jsx";
+import PhotoPickerButton from "../components/PhotoPickerButton.jsx";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
 import { apiUrl, mediaUrl, socketUrl } from "../lib/api.js";
 
@@ -15,11 +17,12 @@ function detectDevice() {
   return { device: mobile ? "mobile" : "desktop", userAgent: ua };
 }
 
-function MessageBubble({ m }) {
+function MessageBubble({ m, onRespondInvite }) {
   if (m.type === "system") {
     return <p className="guest-system">{m.text}</p>;
   }
   const mine = m.from === "guest";
+  const pending = (m.status || "pending") === "pending";
   return (
     <div className={`guest-bubble ${mine ? "mine" : ""}`}>
       {m.type === "voice" && m.media_url ? (
@@ -27,10 +30,22 @@ function MessageBubble({ m }) {
           src={mediaUrl(m.media_url)}
           durationHint={Number(m.duration_sec || m.durationSec) || 0}
         />
+      ) : m.type === "photo" && m.media_url ? (
+        <img className="msg__img" src={mediaUrl(m.media_url)} alt="Slika" loading="lazy" />
       ) : m.type === "call" || m.type === "video" ? (
         <CallInvite
           kind={m.type === "video" ? "video" : "call"}
           fromLabel={m.from === "ema" ? "Ema" : "Ti"}
+          status={m.status || "pending"}
+          canRespond={!mine && pending}
+          onRespond={(answer) => onRespondInvite?.(m.id, answer)}
+        />
+      ) : m.type === "coffee" ? (
+        <CoffeeAsk
+          fromLabel={m.from === "ema" ? "Ema" : "Ti"}
+          status={m.status || "pending"}
+          canRespond={!mine && pending}
+          onRespond={(answer) => onRespondInvite?.(m.id, answer)}
         />
       ) : m.type === "reaction" ? (
         <p className="guest-bubble__react">{m.text}</p>
@@ -326,6 +341,25 @@ export default function GuestApp() {
     setIslandOpen(false);
   }
 
+  function sendPhoto(image, mime) {
+    if (!socketRef.current || !conversation?.id) return;
+    setError("");
+    socketRef.current.emit("send_photo", {
+      conversationId: conversation.id,
+      image,
+      mime,
+    });
+  }
+
+  function respondInvite(messageId, answer) {
+    if (!socketRef.current || !conversation?.id) return;
+    socketRef.current.emit("respond_invite", {
+      conversationId: conversation.id,
+      messageId,
+      answer,
+    });
+  }
+
   if (apiOk === false) {
     return (
       <div className="guest-page">
@@ -459,7 +493,7 @@ export default function GuestApp() {
 
         <div className="guest-chat-stream">
           {messages.map((m) => (
-            <MessageBubble key={m.id} m={m} />
+            <MessageBubble key={m.id} m={m} onRespondInvite={respondInvite} />
           ))}
           <div ref={bottomRef} />
         </div>
@@ -472,7 +506,7 @@ export default function GuestApp() {
           />
         ) : (
           <form
-            className={`island island--bar guest-composer${features.voice ? "" : " island--nomic"}`}
+            className={`island island--bar guest-composer${features.photo ? " island--photo" : ""}${features.voice ? "" : " island--nomic"}`}
             onSubmit={sendText}
           >
             {features.voice ? (
@@ -484,6 +518,9 @@ export default function GuestApp() {
               >
                 <Mic size={18} />
               </button>
+            ) : null}
+            {features.photo ? (
+              <PhotoPickerButton onPick={sendPhoto} />
             ) : null}
             <input
               className="island__input"

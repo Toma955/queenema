@@ -228,9 +228,11 @@ export default function App() {
               onPatience={staff.setPatience}
               onSend={staff.send}
               onSendVoice={staff.sendVoice}
+              onSendPhoto={staff.sendPhoto}
               onReactMessage={staff.reactMessage}
               onSendCall={staff.sendCall}
               onSendReaction={staff.sendReaction}
+              onRespondInvite={staff.respondInvite}
               onEnd={() => staff.endConversation()}
               onWipe={() => staff.wipeConversation()}
             />
