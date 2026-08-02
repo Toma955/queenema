@@ -496,7 +496,7 @@ export default function GuestApp() {
           </p>
           <button
             type="button"
-            className="primary"
+            className="ghost-btn"
             onClick={() => {
               clearChatCache(GUEST_CACHE);
               localStorage.removeItem("queenema_guest");
