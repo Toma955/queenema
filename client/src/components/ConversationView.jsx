@@ -12,6 +12,8 @@ import {
   Video,
 } from "lucide-react";
 import PatienceBar from "./PatienceBar.jsx";
+import CallInvite from "./CallInvite.jsx";
+import VoicePlayer from "./VoicePlayer.jsx";
 import { apiUrl } from "../lib/api.js";
 
 function mediaSrc(url) {
@@ -323,11 +325,13 @@ export default function ConversationView({
         ? new MediaRecorder(stream, { mimeType: mime })
         : new MediaRecorder(stream);
       chunksRef.current = [];
+      const startedAt = performance.now();
       recorder.ondataavailable = (ev) => {
         if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
       };
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
+        const durationSec = Math.max(0.4, (performance.now() - startedAt) / 1000);
         const blob = new Blob(chunksRef.current, {
           type: recorder.mimeType || mime || "audio/webm",
         });
@@ -335,7 +339,7 @@ export default function ConversationView({
           return;
         }
         const reader = new FileReader();
-        reader.onloadend = () => onSendVoice?.(reader.result, blob.type);
+        reader.onloadend = () => onSendVoice?.(reader.result, blob.type, durationSec);
         reader.readAsDataURL(blob);
       };
       mediaRef.current = recorder;
@@ -483,11 +487,17 @@ export default function ConversationView({
               }}
             >
               {m.type === "voice" ? (
-                <audio controls src={mediaSrc(m.media_url || m.mediaUrl)} />
+                <VoicePlayer
+                  src={mediaSrc(m.media_url || m.mediaUrl)}
+                  durationHint={Number(m.duration_sec || m.durationSec) || 0}
+                />
               ) : m.type === "reaction" ? (
                 <p className="msg__react">{m.text}</p>
               ) : m.type === "call" || m.type === "video" ? (
-                <p className="msg__call">{m.text}</p>
+                <CallInvite
+                  kind={m.type === "video" ? "video" : "call"}
+                  fromLabel={m.from === "ema" ? "Ema" : guestName}
+                />
               ) : (
                 <p className="msg__text">{m.text}</p>
               )}

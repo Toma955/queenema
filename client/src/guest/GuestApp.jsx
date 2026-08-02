@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { Coffee, Heart, Mic, Phone, Video } from "lucide-react";
+import CallInvite from "../components/CallInvite.jsx";
+import VoicePlayer from "../components/VoicePlayer.jsx";
 import { apiUrl, mediaUrl, socketUrl } from "../lib/api.js";
 
 const COOKIE_KEY = "queenema_cookies";
@@ -19,9 +21,15 @@ function MessageBubble({ m }) {
   return (
     <div className={`guest-bubble ${mine ? "mine" : ""}`}>
       {m.type === "voice" && m.media_url ? (
-        <audio controls src={mediaUrl(m.media_url)} />
+        <VoicePlayer
+          src={mediaUrl(m.media_url)}
+          durationHint={Number(m.duration_sec || m.durationSec) || 0}
+        />
       ) : m.type === "call" || m.type === "video" ? (
-        <p className="guest-bubble__call">{m.text}</p>
+        <CallInvite
+          kind={m.type === "video" ? "video" : "call"}
+          fromLabel={m.from === "ema" ? "Ema" : "Ti"}
+        />
       ) : m.type === "reaction" ? (
         <p className="guest-bubble__react">{m.text}</p>
       ) : (
@@ -325,11 +333,13 @@ export default function GuestApp() {
         ? new MediaRecorder(stream, { mimeType: mime })
         : new MediaRecorder(stream);
       chunksRef.current = [];
+      const startedAt = performance.now();
       recorder.ondataavailable = (ev) => {
         if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
       };
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
+        const durationSec = Math.max(0.4, (performance.now() - startedAt) / 1000);
         const blob = new Blob(chunksRef.current, {
           type: recorder.mimeType || mime || "audio/webm",
         });
@@ -344,6 +354,7 @@ export default function GuestApp() {
             conversationId: conversation.id,
             audio: reader.result,
             mime: blob.type,
+            durationSec,
           });
         };
         reader.readAsDataURL(blob);

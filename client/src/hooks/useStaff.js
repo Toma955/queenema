@@ -303,12 +303,13 @@ export function useStaff(mode = "ema") {
         conversationId: activeId,
         text,
       }),
-    sendVoice: (audio, mime) =>
+    sendVoice: (audio, mime, durationSec) =>
       activeId &&
       socketRef.current?.emit("send_voice", {
         conversationId: activeId,
         audio,
         mime,
+        durationSec,
       }),
     sendReaction: (kind) =>
       activeId &&
