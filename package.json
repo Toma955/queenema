@@ -3,8 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "concurrently -n mobile,admin -c cyan,green \"npm run dev --prefix client\" \"npm run dev --prefix admin\"",
-    "install:all": "npm install && npm install --prefix client && npm install --prefix admin"
+    "dev": "concurrently -k -n api,ema,guest -c magenta,cyan,green \"npm --prefix ../queenema_server start\" \"npm run dev --prefix client\" \"npm run dev --prefix admin\"",
+    "dev:front": "concurrently -k -n ema,guest -c cyan,green \"npm run dev --prefix client\" \"npm run dev --prefix admin\"",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix admin && npm install --prefix ../queenema_server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

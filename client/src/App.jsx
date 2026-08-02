@@ -1,66 +1,84 @@
-import { useEffect, useRef, useState } from "react";
-import { useChat } from "./hooks/useChat.js";
+import { useCallback, useEffect, useState } from "react";
+import { useEma } from "./hooks/useEma.js";
+import { apiUrl } from "./lib/api.js";
 import Preloader from "./components/Preloader.jsx";
-import IPhoneGate from "./components/IPhoneGate.jsx";
-import UpdateMode from "./components/modes/UpdateMode.jsx";
-import SleepMode from "./components/modes/SleepMode.jsx";
-import ChatMode from "./components/modes/ChatMode.jsx";
-
-function isIPhone() {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  const force = new URLSearchParams(window.location.search).has("force");
-  if (force) return true;
-  const iPhone = /iPhone|iPod/i.test(ua);
-  const local =
-    location.hostname === "localhost" || location.hostname === "127.0.0.1";
-  return iPhone || local;
-}
+import Login from "./components/Login.jsx";
+import Home from "./components/Home.jsx";
+import ConversationView from "./components/ConversationView.jsx";
+import Unavailable from "./components/Unavailable.jsx";
 
 export default function App() {
   const [ready, setReady] = useState(false);
-  const allowed = isIPhone();
-  const chat = useChat("ema");
-  const joinRef = useRef(chat.join);
-  joinRef.current = chat.join;
-  const startedRef = useRef(false);
+  const [apiOk, setApiOk] = useState(null);
+  const ema = useEma();
+
+  const checkApi = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl("/api/health"), { cache: "no-store" });
+      const data = await res.json();
+      setApiOk(Boolean(res.ok && data?.ok));
+    } catch {
+      setApiOk(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!ready || startedRef.current) return;
-    startedRef.current = true;
-    joinRef.current();
-  }, [ready]);
+    checkApi();
+    const id = setInterval(checkApi, 15000);
+    return () => clearInterval(id);
+  }, [checkApi]);
 
-  if (!allowed) {
+  if (apiOk === false) {
     return (
-      <div className="phone-root">
-        <IPhoneGate />
+      <div className="app-root">
+        <div className="app-stage">
+          <Unavailable
+            code="404"
+            title="Stranica nedostupna"
+            message="API server nije dostupan. Provjeri je li queenema API upaljen."
+            onRetry={checkApi}
+          />
+        </div>
       </div>
     );
   }
 
-  if (!ready) {
+  if (!ready || apiOk === null) {
     return (
-      <div className="phone-root">
+      <div className="app-root">
         <Preloader onDone={() => setReady(true)} />
       </div>
     );
   }
 
   return (
-    <div className="phone-root">
-      <div className="phone-stage">
-        {chat.mode === "update" && <UpdateMode />}
-        {chat.mode === "sleep" && <SleepMode partner={chat.partner} />}
-        {chat.mode === "chat" && (
-          <ChatMode
-            user={chat.user}
-            partner={chat.partner}
-            messages={chat.messages}
-            error={chat.error}
-            joining={chat.joining}
-            onSend={chat.send}
-            onSendVoice={chat.sendVoice}
+    <div className="app-root">
+      <div className="app-stage">
+        {!ema.user ? (
+          <Login onLogin={ema.login} joining={ema.joining} error={ema.error} />
+        ) : ema.activeId ? (
+          <ConversationView
+            conversation={ema.active}
+            messages={ema.messages}
+            features={ema.features}
+            error={ema.error}
+            onBack={() => ema.setActiveId(null)}
+            onPatience={ema.setPatience}
+            onEnd={ema.endConversation}
+            onSend={ema.send}
+            onSendVoice={ema.sendVoice}
+          />
+        ) : (
+          <Home
+            settings={ema.settings}
+            requests={ema.requests}
+            conversations={ema.conversations}
+            leaderboard={ema.leaderboard}
+            onToggleAccept={ema.setAcceptNew}
+            onAccept={ema.acceptRequest}
+            onReject={ema.rejectRequest}
+            onOpen={ema.setActiveId}
+            onLogout={ema.logout}
           />
         )}
       </div>

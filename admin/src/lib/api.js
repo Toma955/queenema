@@ -5,6 +5,12 @@ export function apiUrl(path) {
   return `${API_URL}${path}`;
 }
 
+export function mediaUrl(path) {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  return apiUrl(path);
+}
+
 export function socketUrl() {
   return API_URL || undefined;
 }
