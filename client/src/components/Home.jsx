@@ -50,7 +50,7 @@ function guestBaseUrl() {
       return `${protocol}//${hostname}:5174`;
     }
   }
-  return "https://queenema-admin.vercel.app";
+  return "https://guest.queenema.art";
 }
 
 function GlassButton({ children, onClick, disabled, className = "", glass }) {
