@@ -20,8 +20,8 @@ function pearColor(pct) {
 }
 
 /**
- * Rail = od centra lijeve do centra desne ikone.
- * onChange = uživo dok vuče; onCommit = kad pusti (jedan put na server).
+ * onChange = uživo dok vuče (samo UI).
+ * onCommit = jednom kad pusti pointer / završi tipkalo.
  */
 export default function PatienceBar({
   value = 50,
@@ -33,9 +33,13 @@ export default function PatienceBar({
   const pct = Math.max(0, Math.min(100, Number(value) || 0));
   const trackRef = useRef(null);
   const dragging = useRef(false);
+  const startVal = useRef(pct);
   const latest = useRef(pct);
   const accent = pearColor(pct);
-  latest.current = pct;
+
+  if (!dragging.current) {
+    latest.current = pct;
+  }
 
   function valueFromClientX(clientX) {
     if (readonly || !trackRef.current) return null;
@@ -52,33 +56,39 @@ export default function PatienceBar({
     onChange?.(next);
   }
 
-  function commit() {
+  function endDrag() {
+    if (!dragging.current) return;
+    dragging.current = false;
     const v = latest.current;
-    onCommit?.(v);
+    if (v !== startVal.current) {
+      onCommit?.(v);
+    }
   }
 
   function onPointerDown(e) {
     if (readonly) return;
     e.preventDefault();
+    e.stopPropagation();
     dragging.current = true;
+    startVal.current = latest.current;
     e.currentTarget.setPointerCapture?.(e.pointerId);
     setFromClientX(e.clientX);
   }
 
   function onPointerMove(e) {
     if (!dragging.current || readonly) return;
+    e.preventDefault();
     setFromClientX(e.clientX);
   }
 
   function onPointerUp(e) {
     if (!dragging.current) return;
-    dragging.current = false;
     try {
       e.currentTarget.releasePointerCapture?.(e.pointerId);
     } catch {
       /* ignore */
     }
-    commit();
+    endDrag();
   }
 
   return (

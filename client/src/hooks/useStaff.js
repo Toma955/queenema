@@ -34,6 +34,8 @@ export function useStaff(mode = "ema") {
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
   const socketRef = useRef(null);
+  const patienceTimerRef = useRef(null);
+  const patiencePendingRef = useRef(null);
 
   function applyAdminState(payload) {
     setSettings(payload.settings || { acceptNewConversations: false });
@@ -207,6 +209,13 @@ export function useStaff(mode = "ema") {
     });
 
     return () => {
+      if (patienceTimerRef.current) {
+        window.clearTimeout(patienceTimerRef.current);
+        const pending = patiencePendingRef.current;
+        if (pending && socketRef.current) {
+          socketRef.current.emit("set_patience", pending);
+        }
+      }
       socket.disconnect();
       socketRef.current = null;
     };
@@ -262,10 +271,21 @@ export function useStaff(mode = "ema") {
     setPatience: (patience, conversationId) => {
       const id = conversationId ?? activeId;
       if (!id) return;
-      socketRef.current?.emit("set_patience", {
+      patiencePendingRef.current = {
         conversationId: id,
-        patience,
-      });
+        patience: Math.round(Number(patience)),
+      };
+      if (patienceTimerRef.current) {
+        window.clearTimeout(patienceTimerRef.current);
+      }
+      // Šalji tek kad Ema završi pomicanje (ne svaki piksel)
+      patienceTimerRef.current = window.setTimeout(() => {
+        const pending = patiencePendingRef.current;
+        patiencePendingRef.current = null;
+        patienceTimerRef.current = null;
+        if (!pending || !socketRef.current) return;
+        socketRef.current.emit("set_patience", pending);
+      }, 420);
     },
     endConversation: (conversationId) => {
       const id = conversationId ?? activeId;

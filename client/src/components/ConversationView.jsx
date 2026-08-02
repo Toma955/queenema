@@ -301,29 +301,45 @@ export default function ConversationView({
 
   async function toggleVoice() {
     if (recording) {
+      try {
+        mediaRef.current?.requestData?.();
+      } catch {
+        /* ignore */
+      }
       mediaRef.current?.stop();
       setRecording(false);
       return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported("audio/mp4")
-        ? "audio/mp4"
-        : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : MediaRecorder.isTypeSupported("audio/mp4")
+            ? "audio/mp4"
+            : "";
+      const recorder = mime
+        ? new MediaRecorder(stream, { mimeType: mime })
+        : new MediaRecorder(stream);
       chunksRef.current = [];
       recorder.ondataavailable = (ev) => {
-        if (ev.data.size) chunksRef.current.push(ev.data);
+        if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
       };
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
+        const blob = new Blob(chunksRef.current, {
+          type: recorder.mimeType || mime || "audio/webm",
+        });
+        if (blob.size < 100) {
+          return;
+        }
         const reader = new FileReader();
         reader.onloadend = () => onSendVoice?.(reader.result, blob.type);
         reader.readAsDataURL(blob);
       };
       mediaRef.current = recorder;
-      recorder.start();
+      recorder.start(200);
       setRecording(true);
     } catch {
       /* mic denied */
