@@ -377,6 +377,12 @@ export function useStaff(mode = "ema") {
         messageId,
         answer,
       }),
+    setEmaAvatar: (image, mime, clear = false) =>
+      socketRef.current?.emit("set_ema_avatar", {
+        image,
+        mime,
+        clear: Boolean(clear) || !image,
+      }),
     socketRef,
   };
 }

@@ -6,6 +6,7 @@ import CoffeeAsk from "../components/CoffeeAsk.jsx";
 import VoicePlayer from "../components/VoicePlayer.jsx";
 import VoiceRecordBar from "../components/VoiceRecordBar.jsx";
 import PhotoPickerButton from "../components/PhotoPickerButton.jsx";
+import LiveCall from "../components/LiveCall.jsx";
 import { TypingDots, useTyping } from "../components/TypingIndicator.jsx";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
 import { clearChatCache, loadChatCache, saveChatCache } from "../lib/chatCache.js";
@@ -20,7 +21,18 @@ function detectDevice() {
   return { device: mobile ? "mobile" : "desktop", userAgent: ua };
 }
 
-function MessageBubble({ m, onRespondInvite }) {
+function GuestAvatar({ src, label }) {
+  if (src) {
+    return <img className="msg__ava" src={mediaUrl(src)} alt="" />;
+  }
+  return (
+    <span className="msg__ava msg__ava--fallback" aria-hidden>
+      {(label || "?").slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
+function MessageBubble({ m, onRespondInvite, guestAvatar, emaAvatar, guestName }) {
   if (m.type === "system") {
     return <p className="guest-system">{m.text}</p>;
   }
@@ -32,41 +44,45 @@ function MessageBubble({ m, onRespondInvite }) {
   const photoSrc = m.media_url || m.mediaUrl;
 
   return (
-    <div className={`guest-bubble ${mine ? "mine" : ""}`}>
-      {m.type === "voice" && photoSrc ? (
-        <VoicePlayer
-          src={mediaUrl(m.media_url || m.mediaUrl)}
-          durationHint={Number(m.duration_sec || m.durationSec) || 0}
-        />
-      ) : m.type === "photo" && photoSrc ? (
-        <a
-          className="msg__img-wrap"
-          href={mediaUrl(photoSrc)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <img className="msg__img" src={mediaUrl(photoSrc)} alt="Slika" loading="lazy" />
-        </a>
-      ) : m.type === "call" || m.type === "video" ? (
-        <CallInvite
-          kind={m.type === "video" ? "video" : "call"}
-          fromLabel={m.from === "ema" ? "Ema" : "Ti"}
-          status={m.status || "pending"}
-          canRespond={canRespond}
-          onRespond={(answer) => onRespondInvite?.(m.id, answer)}
-        />
-      ) : isCoffee ? (
-        <CoffeeAsk
-          fromLabel={m.from === "ema" ? "Ema" : "Ti"}
-          status={m.status || "pending"}
-          canRespond={canRespond}
-          onRespond={(answer) => onRespondInvite?.(m.id, answer)}
-        />
-      ) : m.type === "reaction" ? (
-        <p className="guest-bubble__react">{m.text}</p>
-      ) : (
-        <p>{m.text}</p>
-      )}
+    <div className={`guest-bubble-row ${mine ? "mine" : ""}`}>
+      {!mine ? <GuestAvatar src={emaAvatar} label="Ema" /> : null}
+      <div className={`guest-bubble ${mine ? "mine" : ""}`}>
+        {m.type === "voice" && (m.media_url || m.mediaUrl) ? (
+          <VoicePlayer
+            src={mediaUrl(m.media_url || m.mediaUrl)}
+            durationHint={Number(m.duration_sec || m.durationSec) || 0}
+          />
+        ) : m.type === "photo" && photoSrc ? (
+          <a
+            className="msg__img-wrap"
+            href={mediaUrl(photoSrc)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <img className="msg__img" src={mediaUrl(photoSrc)} alt="Slika" loading="lazy" />
+          </a>
+        ) : m.type === "call" || m.type === "video" ? (
+          <CallInvite
+            kind={m.type === "video" ? "video" : "call"}
+            fromLabel={m.from === "ema" ? "Ema" : "Ti"}
+            status={m.status || "pending"}
+            canRespond={canRespond}
+            onRespond={(answer) => onRespondInvite?.(m.id, answer)}
+          />
+        ) : isCoffee ? (
+          <CoffeeAsk
+            fromLabel={m.from === "ema" ? "Ema" : "Ti"}
+            status={m.status || "pending"}
+            canRespond={canRespond}
+            onRespond={(answer) => onRespondInvite?.(m.id, answer)}
+          />
+        ) : m.type === "reaction" ? (
+          <p className="guest-bubble__react">{m.text}</p>
+        ) : (
+          <p>{m.text}</p>
+        )}
+      </div>
+      {mine ? <GuestAvatar src={guestAvatar} label={guestName || "Ti"} /> : null}
     </div>
   );
 }
@@ -116,6 +132,7 @@ export default function GuestApp() {
   });
   const [draft, setDraft] = useState("");
   const [islandOpen, setIslandOpen] = useState(false);
+  const [liveCall, setLiveCall] = useState(null);
   const socketRef = useRef(null);
   const bottomRef = useRef(null);
   const islandRef = useRef(null);
@@ -227,6 +244,15 @@ export default function GuestApp() {
     });
     socket.on("message_updated", (message) => {
       setMessages((prev) => prev.map((m) => (m.id === message.id ? message : m)));
+    });
+    socket.on("call_session", (session) => {
+      if (!session) return;
+      const myRole = "guest";
+      setLiveCall({
+        kind: session.kind,
+        role: session.caller === myRole ? "caller" : "callee",
+        peerLabel: session.caller === myRole ? "Ema" : "Ti",
+      });
     });
     socket.on("request_accepted", (payload) => {
       if (payload.guestToken !== guestToken) return;
@@ -585,11 +611,29 @@ export default function GuestApp() {
 
         <div className="guest-chat-stream">
           {messages.map((m) => (
-            <MessageBubble key={m.id} m={m} onRespondInvite={respondInvite} />
+            <MessageBubble
+              key={m.id}
+              m={m}
+              onRespondInvite={respondInvite}
+              guestAvatar={conversation.guestAvatar}
+              emaAvatar={conversation.emaAvatar}
+              guestName={conversation.guestName}
+            />
           ))}
           {peerTyping ? <TypingDots label="Ema tipka" /> : null}
           <div ref={bottomRef} />
         </div>
+
+        {liveCall ? (
+          <LiveCall
+            kind={liveCall.kind}
+            role={liveCall.role}
+            conversationId={conversation.id}
+            socketRef={socketRef}
+            peerLabel={liveCall.peerLabel}
+            onHangup={() => setLiveCall(null)}
+          />
+        ) : null}
 
         {recording ? (
           <VoiceRecordBar
