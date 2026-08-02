@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEma } from "./hooks/useEma.js";
 import { useTheme } from "./hooks/useTheme.js";
 import { apiUrl } from "./lib/api.js";
+import { isGuestMode } from "./lib/host.js";
 import Preloader from "./components/Preloader.jsx";
 
 function previewMode() {
@@ -9,12 +10,6 @@ function previewMode() {
   const p = new URLSearchParams(window.location.search).get("preview");
   if (p === "chat" || p === "request") return p;
   return null;
-}
-
-function isGuestPath() {
-  if (typeof window === "undefined") return false;
-  const path = window.location.pathname.replace(/\/+$/, "") || "/";
-  return path === "/guest" || path.startsWith("/guest/");
 }
 
 async function warmFonts() {
@@ -30,7 +25,8 @@ async function warmFonts() {
 }
 
 export default function App() {
-  const guestMode = useMemo(() => isGuestPath(), []);
+  // queenema.art = korisnik; Vercel / localhost = Ema
+  const guestMode = useMemo(() => isGuestMode(), []);
   const [bootProgress, setBootProgress] = useState(0);
   const [bootLabel, setBootLabel] = useState("Pripremam…");
   const [ready, setReady] = useState(false);
@@ -59,7 +55,7 @@ export default function App() {
     (async () => {
       try {
         if (guestMode) {
-          setBootLabel("Učitavam gost…");
+          setBootLabel("Učitavam…");
           setBootProgress(20);
           const [{ default: GuestApp }] = await Promise.all([
             import("./guest/GuestApp.jsx"),

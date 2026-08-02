@@ -6,6 +6,7 @@ import {
   Settings,
 } from "lucide-react";
 import { apiUrl } from "../lib/api.js";
+import { publicShareUrl } from "../lib/host.js";
 import PatienceBar from "./PatienceBar.jsx";
 
 const TABS = [
@@ -38,13 +39,7 @@ function BrandMark() {
 }
 
 function guestShareUrl() {
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return `${protocol}//${hostname}:${window.location.port || "5173"}/guest`;
-    }
-  }
-  return "https://queenema.art/guest";
+  return publicShareUrl();
 }
 
 function CtaButton({ children, onClick, disabled, className = "" }) {
@@ -678,8 +673,8 @@ export default function Home({
             <>
               <p className="muted">
                 {copied
-                  ? "Već u međuspremniku — samo pošalji."
-                  : "Pošalji gostu. Upiše ime, opis i (po želji) sliku."}
+                  ? "Već u međuspremniku — pošalji korisniku."
+                  : "Korisnik na queenema.art šalje zahtjev; ti odlučuješ."}
               </p>
               <button
                 type="button"

@@ -11,8 +11,8 @@ function detectDevice() {
 }
 
 /**
- * Jednostavan gost ulaz na /guest:
- * ime + opis (+ opcionalna slika) → čeka Emine → chat.
+ * Javni ulaz (queenema.art):
+ * ime + opis (+ opcionalna slika) → zahtjev → ako Ema prihvati → račun/chat.
  */
 export default function GuestApp() {
   const [cookieConsent, setCookieConsent] = useState(() => {
@@ -344,11 +344,13 @@ export default function GuestApp() {
   return (
     <div className="guest-page">
       <form className="guest-card" onSubmit={submitRequest}>
-        <h1>Zahtjev</h1>
+        <h1>
+          <span className="qe">Q</span>ueen<span className="qe">E</span>ma
+        </h1>
         <p className="lead">
           {closed
-            ? gateError || "Prijava nije dostupna."
-            : "Ime i prezime, opis, slika po želji — Ema odlučuje."}
+            ? gateError || "Prijava trenutno nije otvorena."
+            : "Prvi put? Pošalji zahtjev. Ako Ema prihvati, dobiješ račun."}
         </p>
 
         <label>
