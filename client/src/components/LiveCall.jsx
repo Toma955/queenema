@@ -2,11 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
 
 const ICE = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
 };
+
+function sdpPayload(desc) {
+  if (!desc) return null;
+  return { type: desc.type, sdp: desc.sdp };
+}
 
 /**
  * Live audio/video poziv (WebRTC) nakon Prihvati.
+ * Caller čeka "ready" pa tek onda šalje offer — inače druga strana ostane bez zvuka.
  */
 export default function LiveCall({
   kind = "call",
@@ -22,6 +31,12 @@ export default function LiveCall({
   const remoteAudioRef = useRef(null);
   const pcRef = useRef(null);
   const streamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+  const localReadyRef = useRef(false);
+  const remoteDescSet = useRef(false);
+  const pendingOffer = useRef(null);
+  const peerReadyRef = useRef(false);
+  const pendingIce = useRef([]);
   const makingOffer = useRef(false);
   const [status, setStatus] = useState("Spajanje…");
   const [muted, setMuted] = useState(false);
@@ -33,6 +48,7 @@ export default function LiveCall({
     if (!socket || !conversationId) return undefined;
 
     let dead = false;
+    let readyTimer = null;
     const pc = new RTCPeerConnection(ICE);
     pcRef.current = pc;
 
@@ -43,6 +59,75 @@ export default function LiveCall({
       });
     }
 
+    function attachRemoteTrack(track, streams) {
+      let stream = streams?.[0] || remoteStreamRef.current;
+      if (!stream) {
+        stream = new MediaStream();
+        remoteStreamRef.current = stream;
+      }
+      if (!stream.getTracks().includes(track)) {
+        stream.addTrack(track);
+      }
+      remoteStreamRef.current = stream;
+
+      const videoEl = remoteVideoRef.current;
+      const audioEl = remoteAudioRef.current;
+      if (video && videoEl) {
+        if (videoEl.srcObject !== stream) videoEl.srcObject = stream;
+        videoEl.play?.().catch(() => {});
+      }
+      if (audioEl) {
+        if (audioEl.srcObject !== stream) audioEl.srcObject = stream;
+        audioEl.play?.().catch(() => {});
+      }
+    }
+
+    async function flushIce() {
+      if (!remoteDescSet.current) return;
+      const queued = pendingIce.current.splice(0);
+      for (const c of queued) {
+        try {
+          await pc.addIceCandidate(c);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    async function createAndSendOffer() {
+      if (dead || makingOffer.current || !localReadyRef.current) return;
+      if (pc.signalingState !== "stable") return;
+      makingOffer.current = true;
+      try {
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: video,
+        });
+        await pc.setLocalDescription(offer);
+        signal({ type: "offer", sdp: sdpPayload(pc.localDescription) });
+        setStatus("Pozivanje…");
+      } finally {
+        makingOffer.current = false;
+      }
+    }
+
+    async function acceptOffer(sdp) {
+      if (dead || !localReadyRef.current) {
+        pendingOffer.current = sdp;
+        return;
+      }
+      if (pc.signalingState !== "stable" && pc.signalingState !== "have-remote-offer") {
+        return;
+      }
+      await pc.setRemoteDescription(sdp);
+      remoteDescSet.current = true;
+      await flushIce();
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      signal({ type: "answer", sdp: sdpPayload(pc.localDescription) });
+      setStatus("U pozivu");
+    }
+
     pc.onicecandidate = (ev) => {
       if (ev.candidate) {
         signal({ type: "ice", candidate: ev.candidate.toJSON() });
@@ -50,27 +135,22 @@ export default function LiveCall({
     };
     pc.onconnectionstatechange = () => {
       const s = pc.connectionState;
-      if (s === "connected") setStatus("U pozivu");
+      if (s === "connected" || s === "completed") setStatus("U pozivu");
       else if (s === "connecting") setStatus("Spajanje…");
       else if (s === "failed") setStatus("Veza nije uspjela");
       else if (s === "disconnected" || s === "closed") setStatus("Prekinuto");
     };
     pc.ontrack = (ev) => {
-      const [stream] = ev.streams;
-      if (!stream) return;
-      if (video && remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = stream;
-      }
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = stream;
-        remoteAudioRef.current.play?.().catch(() => {});
-      }
+      if (ev.track) attachRemoteTrack(ev.track, ev.streams);
     };
 
     async function start() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
           video: video ? { facingMode: "user" } : false,
         });
         if (dead) {
@@ -82,17 +162,27 @@ export default function LiveCall({
         for (const track of stream.getTracks()) {
           pc.addTrack(track, stream);
         }
+        localReadyRef.current = true;
 
         if (role === "caller") {
-          setStatus("Pozivanje…");
-          makingOffer.current = true;
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          signal({ type: "offer", sdp: pc.localDescription });
-          makingOffer.current = false;
+          setStatus("Čekam drugu stranu…");
+          signal({ type: "need-ready" });
+          if (peerReadyRef.current) {
+            await createAndSendOffer();
+          }
         } else {
           setStatus("Prihvaćanje…");
+          if (pendingOffer.current) {
+            const sdp = pendingOffer.current;
+            pendingOffer.current = null;
+            await acceptOffer(sdp);
+          }
           signal({ type: "ready" });
+          readyTimer = setInterval(() => {
+            if (!dead && !pc.currentRemoteDescription) {
+              signal({ type: "ready" });
+            }
+          }, 1200);
         }
       } catch (err) {
         setError(
@@ -111,40 +201,40 @@ export default function LiveCall({
       ) {
         return;
       }
+      // ignore self-check placeholder removed
       if (dead || !pcRef.current) return;
       try {
         if (payload.type === "ready" && role === "caller") {
-          if (pc.signalingState === "stable" && !makingOffer.current) {
-            makingOffer.current = true;
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            signal({ type: "offer", sdp: pc.localDescription });
-            makingOffer.current = false;
-          }
+          peerReadyRef.current = true;
+          await createAndSendOffer();
+        } else if (payload.type === "need-ready" && role === "callee") {
+          if (localReadyRef.current) signal({ type: "ready" });
         } else if (payload.type === "offer" && role === "callee") {
-          if (pc.signalingState !== "stable") return;
-          await pc.setRemoteDescription(payload.sdp);
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          signal({ type: "answer", sdp: pc.localDescription });
-          setStatus("U pozivu");
+          await acceptOffer(payload.sdp);
         } else if (payload.type === "answer" && role === "caller") {
           if (!pc.currentRemoteDescription) {
             await pc.setRemoteDescription(payload.sdp);
+            remoteDescSet.current = true;
+            await flushIce();
           }
           setStatus("U pozivu");
         } else if (payload.type === "ice" && payload.candidate) {
-          try {
-            await pc.addIceCandidate(payload.candidate);
-          } catch {
-            /* ignore */
+          if (!remoteDescSet.current) {
+            pendingIce.current.push(payload.candidate);
+          } else {
+            try {
+              await pc.addIceCandidate(payload.candidate);
+            } catch {
+              /* ignore */
+            }
           }
         } else if (payload.type === "hangup") {
           setStatus("Prekinuto");
           cleanup(false);
           onHangup?.();
         }
-      } catch {
+      } catch (err) {
+        console.warn("webrtc signal", err);
         setError("Signal greška — pokušaj ponovo.");
       }
     }
@@ -164,6 +254,7 @@ export default function LiveCall({
       }
       streamRef.current?.getTracks?.().forEach((t) => t.stop());
       streamRef.current = null;
+      remoteStreamRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
@@ -174,6 +265,7 @@ export default function LiveCall({
 
     return () => {
       dead = true;
+      if (readyTimer) clearInterval(readyTimer);
       socket.off("webrtc_signal", onSignal);
       cleanup(true);
       pcRef.current = null;
